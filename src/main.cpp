@@ -1230,3 +1230,7 @@ int calc_duty(int _rpm_index, int _err, int _boost_req)
 
   return d;
 }
+
+void control_isr2() {
+  int abs_pressure = (analogRead(MAP_PIN) * map_cal); // pascal
+}
