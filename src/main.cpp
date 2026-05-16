@@ -5,6 +5,7 @@
 
 #include "Rotary.h"
 #include "Fase.h"
+#include "Boost.h"
 
 // PINOS
 #define ROT_SW PB3
