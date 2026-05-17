@@ -3,6 +3,7 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 
+#include "Config.h"
 #include "Rotary.h"
 #include "Fase.h"
 #include "Boost.h"
@@ -35,11 +36,13 @@
 #define MAP_MAX 250 // 237
 #define MAP_MIN 40
 
+/*
 #define IDLE 0
 #define SPOOL 1
 #define PEAK 2
 #define MESA 3
 #define CUT 4
+*/
 
 #define RPM_MIN 750
 #define RPM_MAX 6500
@@ -85,7 +88,7 @@ int duty = 0;
 char status = 'n';
 uint32_t overboost_count = 0;
 uint32_t peak_start_time = 0;
-uint8_t state = IDLE;
+//uint8_t state = IDLE;
 int last_boost_error = 0;
 int error_change_rate = 0;
 int peak_state = 0;
@@ -116,46 +119,19 @@ uint32_t last_led_time = 0;
 
 Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
 
-// unsigned int rpm_table[26] = {750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 3750, 4000, 4250, 4500, 4750, 5000, 5250, 5500, 5750, 6000, 6250, 6500, 6750, 7000};
-
-// multiplicador de duty cycle em relação ao RPM, considerando 100% @ 4000RPM
-unsigned int rpm_duty_mul[26] = {83, 84, 86, 88, 91, 92, 94, 96, 96, 96, 96, 97, 97, 100, 102, 104, 108, 112, 118, 121, 123, 123, 124, 124, 124, 124};
-
-// solenoid duty para atingir 205 Kpa @ 4000 RPM
-/*
-unsigned int duty_table0[61] = {80, 79, 78, 76, 75, 75, 75, 75, 75, 75, 75, 75, 74, 74, 74, 73, 73, 73, 72, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 64, 63, 62, 62, 62, 62, 61, 61, 61, 61, 61, 60, 60, 60, 60, 60, 59, 59, 58, 58, 57, 56, 55, 55, 55, 55, 55};
-unsigned int duty_table1[61] = {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 64, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38};
-unsigned int duty_table2[61] = {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 65, 64, 64, 63, 63, 62, 62, 61, 61, 60, 60, 59, 59, 58, 58, 57, 57, 56, 56, 55, 55, 54, 54, 53, 53, 52, 52};
-unsigned int duty_table3[61] = {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 65, 65, 64, 64, 64, 63, 63, 63, 62, 62, 62, 61, 61, 61, 60, 60, 60, 59, 59, 59, 58, 58, 58, 57, 57, 57, 56};
-unsigned int duty_table4[61] = {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 64, 63, 62, 62, 61, 61, 60, 60, 59, 58, 56, 53, 50, 47, 46, 46, 45, 44, 44, 43, 42, 42, 41, 40, 40, 39, 38};
-*/
-/*
-unsigned int dt_table[][61] = {
-  {80, 79, 78, 76, 75, 75, 75, 75, 75, 75, 75, 75, 74, 74, 74, 73, 73, 73, 72, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 64, 63, 62, 62, 62, 62, 61, 61, 61, 61, 61, 60, 60, 60, 60, 60, 59, 59, 58, 58, 57, 56, 55, 55, 55, 55, 55},
-  {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 64, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38},
-  {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 65, 64, 64, 63, 63, 62, 62, 61, 61, 60, 60, 59, 59, 58, 58, 57, 57, 56, 56, 55, 55, 54, 54, 53, 53, 52, 52},
-  {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 65, 65, 64, 64, 64, 63, 63, 63, 62, 62, 62, 61, 61, 61, 60, 60, 60, 59, 59, 59, 58, 58, 58, 57, 57, 57, 56},
-  {80, 80, 79, 79, 78, 78, 77, 77, 76, 76, 75, 75, 74, 74, 73, 73, 72, 72, 71, 71, 70, 70, 69, 69, 68, 68, 67, 67, 66, 66, 66, 66, 66, 65, 64, 63, 62, 62, 61, 61, 60, 60, 59, 58, 56, 53, 50, 47, 46, 46, 45, 44, 44, 43, 42, 42, 41, 40, 40, 39, 38}
-};
-unsigned int *duty_table = dt_table[duty_table_selector];
-*/
-// int error_table[] = {20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10, -12, -14, -16, -18, -20};
-
-#define NUM_MAPAS 5
-//                             750 1000 1250 1500 1750 2000 2250 2500 2750 3000 3250 3500 3750 4000 4250 4500 4750 5000 5250 5500 5750 6000 6250 6500
-unsigned int boost_table0[] = {150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150};
-unsigned int boost_table1[] = {175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175};
-unsigned int boost_table2[] = {190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190, 190};
-unsigned int boost_table3[] = {205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 200, 190, 190, 190, 190};
-unsigned int boost_table4[] = {210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 210, 205, 200, 190, 190, 190};
-unsigned int boost_table5[] = {215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 215, 210, 205, 200, 190, 190, 190};
-unsigned int *mapa[] = {boost_table0, boost_table1, boost_table2, boost_table3, boost_table4, boost_table5};
-
 HardwareTimer *timer;
 
 HardwareSerial debug(PA3, PA2); // RX, TX
 Rotary enc(ROT_SW, ROT_CK, ROT_DT);
 Fase fase(PHASE_PIN);
+Boost boost(PID_FREQ, 10, 10);
+
+enum DisplayPage {
+  MAIN,
+  ADJ_KP,
+  ADJ_KI,
+  ADJ_KD
+};
 
 void enc_isr();
 void sw_isr();
@@ -239,268 +215,16 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(PHASE_PIN), phase_isr, RISING);
 }
 
-unsigned int loop_counter = 0;
-unsigned int map_time = 0;
+
+int raw_map = 0;
+int rpm = 0;
 
 void loop()
 {
-  uint32_t raw_map = analogRead(MAP_PIN);
-  // map_value = (raw_map * map_cal) / 1000; // map_cal --> x1000
-  map_sum += (raw_map * map_cal) / 1000;
-  loop_counter++;
-  if ((millis() - map_time) > 5)
-  {
-    map_value = map_sum / loop_counter;
-    map_sum = 0;
-    loop_counter = 0;
-    map_time = millis();
-  }
-
-  switch (overboost_status)
-  {
-  case 0: // check
-    if (map_value > MAP_MAX)
-    {
-      if (state == PEAK || state == SPOOL)
-      {
-        overboost_time = millis();
-        overboost_status = 1;
-      }
-    }
-    break;
-  case 1:
-    if ((millis() - overboost_time) > overboost_max_time)
-    {
-      if (map_value > MAP_MAX)
-      {
-        // OVERBOOST!
-        analogWrite(WG_PIN, 0);
-        overboost_count++;
-        for (int i = 0; i < 10; i++)
-        {
-          oled.setTextColor(0, 1);
-          oled.clearDisplay();
-          oled.setCursor(0, 0);
-          oled.setTextSize(2);
-          oled.println("OVERBOOST");
-          // oled.setCursor(0, 32);
-          oled.print("> ");
-          oled.print(MAP_MAX);
-          oled.println(" kpa");
-          oled.print("PEAK: ");
-          oled.println(map_value);
-          oled.display();
-          delay(100);
-          oled.setTextColor(1, 0);
-          oled.clearDisplay();
-          oled.setCursor(0, 0);
-          oled.setTextSize(2);
-          oled.println("OVERBOOST");
-          // oled.setCursor(0, 32);
-          oled.print("> ");
-          oled.print(MAP_MAX);
-          oled.println(" kpa");
-          oled.print("PEAK: ");
-          oled.println(map_value);
-          oled.display();
-          delay(100);
-        }
-        integral_error = 0;
-        i_enabled = false;
-        map_sum = 0;
-        loop_counter = 0;
-        map_time = millis();
-      }
-      // RESET
-      overboost_status = 0;
-      overboost_time = 0;
-    }
-    break;
-  }
-
-  if (map_value < MAP_MIN)
-  {
-    status = 'e';
-  }
-
   digitalWrite(LED_BUILTIN, ledState);
 
-  unsigned int rpm = fase.getRPM();
-  unsigned int rpm_index = get_rpm_index(rpm);
-
-  boost_req = mapa[map_num][rpm_index];
-  boost_error = boost_req - map_value;
-
-  unsigned int error_index = get_error_index(boost_error);
-
-  if (map_value > peakMap)
-  {
-    peakMap = map_value;
-    peakRPM = rpm;
-  }
-
-  if (rpm < 900)
-  {
-    state = IDLE;
-  }
-
-  switch (status)
-  {
-  default:
-  case 'n': // padrão
-            // ###### OPERAÇÃO NORMAL #######
-    switch (state)
-    {
-
-    case IDLE:
-      duty = 80;
-      if (rpm > 950)
-      {
-        state = SPOOL;
-      }
-      break;
-
-    case SPOOL:
-      if (boost_error < spool_end_error)
-      {
-        peakMap = 0;
-        peak_state = 0;
-        state = PEAK;
-        peak_error = boost_error;
-        peak_start_time = millis();
-      }
-      else
-      {
-        duty = DUTY_MAX;
-      }
-      break;
-
-    case PEAK:
-      // duty = (((duty_table[error_index]*((boost_req*100)/base_kpa))/100) * rpm_duty_mul[rpm_index]) / 100;
-      if ((millis() - peak_start_time) > peak_timeout)
-      {
-        // peak timeout
-        state = MESA;
-      }
-      if (boost_error < peak_error)
-      {
-        peak_error = boost_error;
-      }
-
-      switch (peak_state)
-      {
-      case 0: // ANTES DO ERRO CHEGAR EM 0 - boost subindo
-        peak_duty_mul = peak_spool_mul;
-        if (boost_error < 0)
-        {
-          peak_state = 1;
-          pk_last_error = boost_error - 1;
-        }
-        break;
-      case 1: // PEAK MID - boost estabilizando - pico da onda - encontrar max pk
-        peak_duty_mul = peak_over_mul;
-        if (((boost_error - 2) > peak_error) && ((pk_last_error - (boost_error)) < 0))
-        {
-          peak_state = 2;
-          peak_error = 0;
-        }
-        else
-        {
-          pk_last_error = boost_error;
-        }
-        break;
-      case 2: // PEAK END - boost caindo até o setpoint
-        peak_duty_mul = peak_end_mul;
-        if (boost_error > peak_end_error)
-        {
-          state = MESA;
-          peak_state = 0;
-        }
-        break;
-        break;
-      }
-      duty = (calc_duty(rpm_index, boost_error, boost_req) * peak_duty_mul) / 100; //(calc_duty(rpm_index, error_index, base_kpa, boost_req) * peak_duty_mul) / 100;
-      if (boost_error > cut_error)
-      {
-        state = CUT;
-        cut_time = millis();
-      }
-      break;
-
-    case MESA:
-      i_enabled = true;
-      duty = calc_duty(rpm_index, boost_error, boost_req); // calc_duty(rpm_index, error_index, base_kpa, boost_req);
-      // duty = ((((duty_table[error_index]*((boost_req*100)/base_kpa))/100) * rpm_duty_mul[rpm_index]) / 100) + p_out + i_out;
-      //  se o erro aumentar muito e rapidamente --> CUT
-      if (boost_error > cut_error)
-      {
-        state = CUT;
-        cut_time = millis();
-      }
-      break;
-
-    case CUT:
-      duty = DUTY_MIN;
-      i_enabled = false;
-      // wait and go back to idle
-      if ((millis() - cut_time) > 10)
-      {
-        state = IDLE;
-      }
-      break;
-    }
-
-    // ###### FIM OPERAÇÃO NORMAL #######
-    break;
-  case 'e': // modo de erro - pressão inválida
-    duty = 0;
-    i_enabled = false;
-    integral_error = 0;
-    if (map_value > (MAP_MIN + 10))
-    {
-      status = 'n';
-    }
-    if ((millis() - last_led_time) > 100)
-    {
-      ledState = !ledState;
-      last_led_time = millis();
-    }
-    break;
-  case 't': // modo de teste
-    static int step = 4;
-    if ((millis() - test_time) > test_delay)
-    {
-      test_time = millis();
-      duty = duty + step;
-      if (duty > PWM_MAX)
-      {
-        duty = PWM_MAX;
-        step = -4;
-      }
-      else if (duty < PWM_MIN)
-      {
-        duty = PWM_MIN;
-        step = 4;
-      }
-    }
-    break;
-  case 'm': // modo manual
-    break;
-  }
-
-  if (duty > PWM_MAX)
-  {
-    duty = PWM_MAX;
-  }
-  else if (duty < PWM_MIN)
-  {
-    duty = PWM_MIN;
-  }
-
-  analogWrite(WG_PIN, (duty * 255) / 100);
-
   // DISPLAY
-  if ((millis() - last_display_time) > 30)
+  if ((millis() - last_display_time) > 30) // atualizar display a cada 30 ms
   {
     if (!digitalRead(PA0))
     {
@@ -520,6 +244,190 @@ void loop()
       display_page++;
     }
 
+    switch(display_page) {
+      default:
+        display_page = MAIN;
+      case MAIN:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        //linha 1 col 1
+        oled.setCursor(0, 0);
+        oled.setTextSize(2);
+        oled.print((boost.get_data(Boost::ABS_PRESSURE) / 1000));
+        oled.setTextSize(1);
+        oled.print("kPa");
+
+        //linha 1 col 2
+        oled.setCursor(62, 0);
+        oled.setTextSize(2);
+        oled.print(rpm);
+        oled.setTextSize(1);
+        oled.print("rpm");
+
+        oled.setTextSize(1);
+        //linha 2 col 1
+        oled.setCursor(0, 16);
+        oled.print("req ");
+        oled.print((boost.get_data(Boost::REQ_PRESSURE) / 1000));
+
+        //linha 2 col 2
+        oled.setCursor(60, 16);
+        oled.print("base ");
+        oled.print(boost.get_data(Boost::BASE));
+
+        //linha 3 col 1
+        oled.setCursor(0, 24);
+        oled.print("p ");
+        oled.print(boost.get_data(Boost::PID_P));
+
+        //linha 3 col 2
+        oled.setCursor(60, 24);
+        oled.print("i ");
+        oled.print(boost.get_data(Boost::PID_I));
+
+        //linha 4 col 1
+        oled.setCursor(0, 32);
+        oled.print("d ");
+        oled.print(boost.get_data(Boost::PID_D));
+
+        //linha 4 col 2
+        oled.setCursor(60, 32);
+        oled.print("pid ");
+        oled.print(boost.get_data(Boost::PID));
+
+        //linha 5 col 1
+        oled.setCursor(0, 40);
+        oled.print("err ");
+        oled.print(boost.get_data(Boost::ERROR));
+
+        //linha 5 col 2
+        oled.setCursor(60, 40);
+        oled.print("atm ");
+        oled.print(boost.get_data(Boost::ATM_PRESSURE));
+
+        //linha 6 col 1
+        oled.setTextSize(2);
+        oled.setCursor(0, 48);
+        switch(boost.get_data(Boost::STATE)) {
+          case Boost::IDLE:
+            oled.print("IDLE");
+            break;
+          case Boost::SPOOL:
+            oled.print("SPOOL");
+            break;
+          case Boost::PEAK:
+            oled.print("PEAK");
+            break;
+          case Boost::MESA:
+            oled.print("MESA");
+            break;
+          case Boost::CUT:
+            oled.print("CUT");
+            break;
+        }
+
+        //linha 6 col 2
+        oled.setCursor(90, 48);
+        oled.print(boost.get_data(Boost::DUTY));
+        oled.print("%");
+        break; 
+      case ADJ_KP:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj PID");
+        oled.println("const");
+        oled.print("P = ");
+        oled.println(Cfg::kp);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::kp += 10;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::kp -= 10;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_KI:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj PID");
+        oled.println("const");
+        oled.print("I = ");
+        oled.println(Cfg::ki);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::ki += 10;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::ki -= 10;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_KD:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj PID");
+        oled.println("const");
+        oled.print("D = ");
+        oled.println(Cfg::kd);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::kd += 10;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::kd -= 10;
+          }
+          enc.reset();
+        }
+        break;
+    }
+
+    oled.display();
+    last_display_time = millis();
+  }
+}
+
+// INTERRUPTS
+
+void control_isr() { // rodando a cada 1 ms
+  raw_map = analogRead(MAP_PIN);
+  int map = raw_map * map_cal; // pascal
+  rpm = fase.getRPM();
+  int rpm_index = get_rpm_index(rpm);
+  boost.update_boost(map);
+  boost.loop(rpm, rpm_index, 100);
+  analogWrite(WG_PIN, (boost.get_data(Boost::DUTY) * 255) / 100);
+}
+
+void phase_isr()
+{
+  fase.pulseISR();
+}
+
+void enc_isr()
+{
+  enc.poll();
+}
+
+void sw_isr()
+{
+  enc.pollSW();
+}
+
+
+
+/*
+
     switch (display_page)
     {
     default:
@@ -534,7 +442,7 @@ void loop()
 
       oled.setCursor(62, 0);
       oled.setTextSize(2);
-      oled.print(rpm);
+      //oled.print(rpm);
       oled.setTextSize(1);
       oled.print("RPM");
 
@@ -606,7 +514,7 @@ void loop()
       oled.println("SEL. MAPA");
       oled.print("mapa = ");
       oled.println(map_num);
-      oled.print(mapa[map_num][10]);
+      //oled.print(mapa[map_num][10]);
       oled.println(" kpa");
       oled.println("@ 3000 RPM");
       if (enc.hasMoved())
@@ -1111,127 +1019,4 @@ void loop()
       break;
     }
 
-    oled.display();
-    last_display_time = millis();
-  }
-}
-
-void enc_isr()
-{
-  enc.poll();
-}
-
-void sw_isr()
-{
-  enc.pollSW();
-}
-
-void phase_isr()
-{
-  fase.pulseISR();
-}
-
-int b_rate_counter = 0;
-void control_isr() // rodando a cada 1 ms
-{
-  if (b_rate_counter > 19) // 20 ciclos --> 20ms
-  {
-    int boost_change = boost_error - last_boost_error;
-    error_change_rate = (boost_change * 1000) / 20; // boost change rate --> kpa/s
-    last_boost_error = boost_error;
-    b_rate_counter = 0;
-  }
-  b_rate_counter++;
-
-  // integral
-
-  if (i_enabled)
-  {
-    p_out = (pid_kp * boost_error) / 100;
-    integral_error += boost_error * 1; // PID_PERIOD = 0.001s = 1 ms;
-    if (integral_error > integral_limit)
-    {
-      integral_error = integral_limit;
-    }
-    else if (integral_error < (-integral_limit))
-    {
-      integral_error = -integral_limit;
-    }
-    i_out = (pid_ki * integral_error) / 100000; // pid_ki -> x100, integral -> x1000 (1 ms) ----> x100000
-  }
-  else
-  {
-    p_out = 0;
-    integral_error = 0;
-    i_out = 0;
-  }
-}
-
-/*
-int calc_duty(int rpm_index, int err_index, int base_kpa, int boost_req)
-{
-  int boost_ratio100 = (boost_req * 100) / base_kpa;
-  int d = (duty_table[err_index] * boost_ratio100 * rpm_duty_mul[rpm_index]) / 10000;
-  // duty = ((((duty_table[error_index]*((boost_req*100)/base_kpa))/100) * rpm_duty_mul[rpm_index]) / 100) + p_out + i_out;
-  if (i_enabled)
-  {
-    d = d + p_out + i_out;
-  }
-  if (d > DUTY_MAX)
-  {
-    d = DUTY_MAX;
-  }
-  else if (d < DUTY_MIN)
-  {
-    d = DUTY_MIN;
-  }
-  return d;
-}
 */
-
-// ((err_base - err_atual) * K) + 66
-// duty = (base_duty * boost_req) / base_kpa
-int calc_duty(int _rpm_index, int _err, int _boost_req)
-{
-  int d = 0;
-
-  // cálculo duty base
-  int base_x100 = ((_boost_req * 100) / base_kpa) * base_duty; // cálculo do duty base para a pressão requisitada
-  if (_err > err_base_start)
-  { // antes do setpoint
-    d = _err * k_duty_under;
-  }
-  else if (_err < err_base_end)
-  { // após setpoint
-    d = _err * k_duty_over;
-  }
-  d = d + base_x100;
-
-  // compensação por RPM
-  d = d * rpm_duty_mul[_rpm_index]; // (x100 * x100 --> x10000)
-
-  // conversão x10000 --> x1
-  d = d / 10000;
-
-  // PID
-  if (i_enabled)
-  {
-    d = d + p_out + i_out;
-  }
-
-  // limites de duty
-  if (d > DUTY_MAX)
-  {
-    d = DUTY_MAX;
-  }
-  else if (d < DUTY_MIN)
-  {
-    d = DUTY_MIN;
-  }
-
-  return d;
-}
-
-void control_isr2() {
-  int abs_pressure = (analogRead(MAP_PIN) * map_cal); // pascal
-}
