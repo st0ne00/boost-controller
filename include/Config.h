@@ -22,7 +22,7 @@ namespace Cfg {
     inline constexpr int rpm_min = 750; // index 0
 
     //array para futura compatibilidade com EEPROM
-    inline std::array<int, 17> cfg_data = {
+    inline std::array<int, 18> cfg_data = {
         900, // 0: idle rpm
         0,   // 1: selected map
 
@@ -45,7 +45,9 @@ namespace Cfg {
         10000,   // 14: cut threshold
 
         210,   // 15: base Kpa
-        62     // 16: base duty
+        62,     // 16: base duty
+
+        278,    // 17: map_cal
     }; 
 
     // config aliases
@@ -66,6 +68,7 @@ namespace Cfg {
     inline int& cut_threshold = cfg_data[14];
     inline int& base_kpa = cfg_data[15];
     inline int& base_duty = cfg_data[16];
+    inline int& map_cal = cfg_data[17];
 }
 
 #endif

@@ -58,7 +58,7 @@ int test_delay = 5;
 // BOOST CONTROL
 // config
 int map_num = 1;
-uint16_t map_cal = 278; // map_cal x1000
+//uint16_t map_cal = 278; // map_cal x1000
 int spool_end_error = 5;
 int cut_rate_threshold = 100;
 // int peak_start_error = 10;
@@ -130,7 +130,14 @@ enum DisplayPage {
   MAIN,
   ADJ_KP,
   ADJ_KI,
-  ADJ_KD
+  ADJ_KD,
+  ADJ_INTEGRAL_LIMIT,
+  ADJ_ERR_SPOOL,
+  ADJ_ERR_PRE_PEAK,
+  ADJ_CUT_ERR,
+  ADJ_BASE_DUTY,
+  ADJ_BASE_KPA,
+  ADJ_MAP_CAL,
 };
 
 void enc_isr();
@@ -217,6 +224,7 @@ void setup()
 
 
 int raw_map = 0;
+int pa_map = 0;
 int rpm = 0;
 
 void loop()
@@ -341,11 +349,11 @@ void loop()
         {
           if (enc.getValue() > 0)
           {
-            Cfg::kp += 10;
+            Cfg::kp += 5;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::kp -= 10;
+            Cfg::kp -= 5;
           }
           enc.reset();
         }
@@ -361,11 +369,11 @@ void loop()
         {
           if (enc.getValue() > 0)
           {
-            Cfg::ki += 10;
+            Cfg::ki += 5;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::ki -= 10;
+            Cfg::ki -= 5;
           }
           enc.reset();
         }
@@ -381,11 +389,151 @@ void loop()
         {
           if (enc.getValue() > 0)
           {
-            Cfg::kd += 10;
+            Cfg::kd += 5;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::kd -= 10;
+            Cfg::kd -= 5;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_ERR_SPOOL:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj ERR");
+        oled.println("spool end");
+        oled.print("E = ");
+        oled.println(Cfg::err_spool_end);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::err_spool_end += 1000;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::err_spool_end -= 1000;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_ERR_PRE_PEAK:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj ERR");
+        oled.println("p-peak end");
+        oled.print("E = ");
+        oled.println(Cfg::err_pre_peak_end);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::err_pre_peak_end += 1000;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::err_pre_peak_end -= 1000;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_INTEGRAL_LIMIT:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj PID");
+        oled.println("integral");
+        oled.println("limit = ");
+        oled.println(Cfg::integral_limit);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::integral_limit += 50000;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::integral_limit -= 50000;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_BASE_DUTY:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj BASE");
+        oled.print("duty = ");
+        oled.println(Cfg::base_duty);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::base_duty += 1;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::base_duty -= 1;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_BASE_KPA:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj BASE");
+        oled.print("kPa = ");
+        oled.println(Cfg::base_kpa);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::base_kpa += 1;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::base_kpa -= 1;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_CUT_ERR:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj CUT");
+        oled.println("atm + ");
+        oled.println(Cfg::cut_threshold);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::cut_threshold += 1000;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::cut_threshold -= 1000;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_MAP_CAL:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("Adj MAP");
+        oled.print("cal = ");
+        oled.println(Cfg::map_cal);
+        oled.print("Raw: ");
+        oled.println(raw_map);
+        oled.print("Pa: ");
+        oled.println(pa_map);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::map_cal += 1;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::map_cal -= 1;
           }
           enc.reset();
         }
@@ -401,10 +549,10 @@ void loop()
 
 void control_isr() { // rodando a cada 1 ms
   raw_map = analogRead(MAP_PIN);
-  int map = raw_map * map_cal; // pascal
+  pa_map = raw_map * Cfg::map_cal; // pascal
   rpm = fase.getRPM();
   int rpm_index = get_rpm_index(rpm);
-  boost.update_boost(map);
+  boost.update_boost(pa_map);
   boost.loop(rpm, rpm_index, 100);
   analogWrite(WG_PIN, (boost.get_data(Boost::DUTY) * 255) / 100);
 }
@@ -423,600 +571,3 @@ void sw_isr()
 {
   enc.pollSW();
 }
-
-
-
-/*
-
-    switch (display_page)
-    {
-    default:
-      display_page = 0;
-    case 0:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-
-      oled.print(map_value);
-      oled.setTextSize(1);
-      oled.print("KPA");
-
-      oled.setCursor(62, 0);
-      oled.setTextSize(2);
-      //oled.print(rpm);
-      oled.setTextSize(1);
-      oled.print("RPM");
-
-      oled.setTextSize(1);
-      oled.setCursor(0, 16);
-      oled.print("pk ");
-      oled.print(peakMap);
-      oled.setCursor(80, 16);
-      oled.print("err  ");
-      oled.print(boost_error);
-
-      oled.setCursor(0, 24);
-      oled.print("int ");
-      oled.print(integral_error);
-      oled.setCursor(65, 24);
-      oled.print("io ");
-      oled.print(i_out);
-
-      oled.setCursor(0, 32);
-      oled.print("po ");
-      oled.print(p_out);
-      oled.setCursor(55, 32);
-      oled.print("over ");
-      oled.print(overboost_count);
-
-      oled.setCursor(0, 40);
-      oled.print("pk st ");
-      oled.println(peak_state);
-      oled.setCursor(55, 40);
-      //oled.print("L ");
-      //oled.println(loop_counter);
-
-      oled.setCursor(0, 48);
-      oled.setTextSize(2);
-      if (status != 'e')
-      {
-        switch (state)
-        {
-        case IDLE:
-          oled.print("IDLE ");
-          break;
-        case SPOOL:
-          oled.print("SPOOL");
-          break;
-        case PEAK:
-          oled.print("PEAK ");
-          break;
-        case MESA:
-          oled.print("MESA ");
-          break;
-        case CUT:
-          oled.print("CUT  ");
-          break;
-        }
-      }
-      else
-      {
-        oled.print("ERR  ");
-      }
-
-      oled.print("  ");
-      oled.print(duty);
-      oled.print("%");
-      enc.reset();
-      break;
-    case 1:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("SEL. MAPA");
-      oled.print("mapa = ");
-      oled.println(map_num);
-      //oled.print(mapa[map_num][10]);
-      oled.println(" kpa");
-      oled.println("@ 3000 RPM");
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          map_num++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          map_num--;
-        }
-        enc.reset();
-        if (map_num > NUM_MAPAS)
-        {
-          map_num = NUM_MAPAS;
-        }
-        else if (map_num < 0)
-        {
-          map_num = 0;
-        }
-      }
-      break;
-    case 2:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("CURVA DUTY");
-      oled.println("antes do 0");
-      oled.print("K = ");
-      oled.println(k_duty_under);
-      // oled.print(mapa[map_num][10]);
-      // oled.println(" kpa");
-      // oled.println("@ 3000 RPM");
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          k_duty_under++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          k_duty_under--;
-        }
-        enc.reset();
-      }
-      break;
-    case 3:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("CURVA DUTY");
-      oled.println("apos o 0");
-      oled.print("K = ");
-      oled.println(k_duty_over);
-      // oled.print(mapa[map_num][10]);
-      // oled.println(" kpa");
-      // oled.println("@ 3000 RPM");
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          k_duty_over++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          k_duty_over--;
-        }
-        enc.reset();
-      }
-      break;
-    case 4:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("CURVA DUTY");
-      oled.println("mesa 0 =");
-      oled.print(err_base_start);
-      oled.print(" <-> ");
-      oled.println(err_base_end);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          err_base_start++;
-          err_base_end--;
-        }
-        else if (enc.getValue() < 0)
-        {
-          err_base_end++;
-          err_base_start--;
-        }
-        enc.reset();
-        if (err_base_start < 1)
-        {
-          err_base_start = 1;
-          err_base_end = -1;
-        }
-      }
-      break;
-    case 5:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("SPOOL CFG");
-      oled.println("ending err");
-      oled.print("err = ");
-      oled.println(spool_end_error);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          spool_end_error++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          spool_end_error--;
-        }
-        enc.reset();
-      }
-      break;
-    case 6: // MULTIPLICADOR SPOOL ( antes do 0 )
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PEAK CFG");
-      oled.println("spool mul");
-      oled.print("S = ");
-      oled.println(peak_spool_mul);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          peak_spool_mul++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          peak_spool_mul--;
-        }
-        enc.reset();
-      }
-      break;
-    case 7: // MULTIPLICADOR INÍCIO PICO ( após o 0 e antes do pico )
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PEAK CFG");
-      oled.println("over mul");
-      oled.print("O = ");
-      oled.println(peak_over_mul);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          peak_over_mul++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          peak_over_mul--;
-        }
-        enc.reset();
-      }
-      break;
-    case 8: // MULTIPLICADOR FIM PICO ( após pico e antes do 0 )
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PEAK CFG");
-      oled.println("end mul");
-      oled.print("E = ");
-      oled.println(peak_end_mul);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          peak_end_mul++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          peak_end_mul--;
-        }
-        enc.reset();
-      }
-      break;
-    case 9:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PEAK CFG");
-      oled.println("ending err");
-      oled.print("err = ");
-      oled.println(peak_end_error);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          peak_end_error++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          peak_end_error--;
-        }
-        enc.reset();
-      }
-      break;
-
-    case 10: // TIMEOUT PICO
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PEAK CFG");
-
-      oled.println("timeout");
-      oled.print("t = ");
-      oled.println(peak_timeout);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          peak_timeout = peak_timeout + 50;
-        }
-        else if (enc.getValue() < 0)
-        {
-          peak_timeout = peak_timeout - 50;
-        }
-        enc.reset();
-      }
-      break;
-    case 11:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("CUT ERR");
-
-      oled.print("e = ");
-      oled.println(cut_error);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          cut_error++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          cut_error--;
-        }
-        enc.reset();
-      }
-      break;
-    case 12:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PID CONFIG");
-      oled.println("constante");
-      oled.print("KP = ");
-      oled.println(pid_kp);
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          pid_kp = pid_kp + 5;
-        }
-        else if (enc.getValue() < 0)
-        {
-          if (pid_kp > 0)
-          {
-            pid_kp = pid_kp - 5;
-          }
-          else
-          {
-            pid_kp = 0;
-          }
-        }
-        enc.reset();
-      }
-      break;
-    case 13:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PID CONFIG");
-      oled.println("constante");
-      oled.print("KI = ");
-      oled.println(pid_ki);
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          pid_ki = pid_ki + 5;
-        }
-        else if (enc.getValue() < 0)
-        {
-          if (pid_ki > 0)
-          {
-            pid_ki = pid_ki - 5;
-          }
-          else
-          {
-            pid_ki = 0;
-          }
-        }
-        enc.reset();
-      }
-      break;
-    case 14:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PID CONFIG");
-      oled.println("max integ.");
-      oled.println("Imax = ");
-      oled.println(integral_limit);
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          integral_limit = integral_limit + 100;
-        }
-        else if (enc.getValue() < 0)
-        {
-          if (integral_limit > 0)
-          {
-            integral_limit = integral_limit - 100;
-          }
-          else
-          {
-            integral_limit = 0;
-          }
-        }
-        enc.reset();
-      }
-      break;
-    case 15:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("BASE DUTY");
-      oled.println("kpa ref");
-      oled.print("B = ");
-      oled.println(base_kpa);
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          base_kpa = base_kpa + 1;
-        }
-        else if (enc.getValue() < 0)
-        {
-          base_kpa = base_kpa - 1;
-        }
-        enc.reset();
-      }
-      break;
-    case 16:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("BASE DUTY");
-      oled.println("% @ base");
-      oled.print("D = ");
-      oled.println(base_duty);
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          base_duty++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          base_duty--;
-        }
-        enc.reset();
-      }
-      break;
-    case 17:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("CALIB. MAP");
-
-      oled.print("RAW: ");
-      oled.println(raw_map);
-
-      oled.print("KPA: ");
-      oled.println(map_value);
-
-      oled.print("C = ");
-      oled.println(map_cal);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          map_cal = map_cal + 1;
-        }
-        else if (enc.getValue() < 0)
-        {
-          map_cal = map_cal - 1;
-        }
-        enc.reset();
-      }
-      break;
-    case 18:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("OVER TIME");
-
-      oled.println("max = ");
-      oled.println(overboost_max_time);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          overboost_max_time++;
-        }
-        else if (enc.getValue() < 0)
-        {
-          overboost_max_time--;
-        }
-        enc.reset();
-      }
-      break;
-    case 19:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("teste PWM");
-
-      if (testing_mode)
-      {
-        oled.print("ativo: ");
-        oled.println(test_delay);
-      }
-      else
-      {
-        oled.println("desativado");
-      }
-      oled.print("duty: ");
-      oled.println(duty);
-
-      oled.print("pwm: ");
-      oled.println((duty * 255) / 100);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          test_delay = test_delay + 1;
-          testing_mode = true;
-          status = 't';
-        }
-        else if (enc.getValue() < 0)
-        {
-          test_delay = test_delay - 1;
-          if (test_delay < 1)
-          {
-            test_delay = 0;
-            testing_mode = false;
-            status = 'n';
-          }
-        }
-        enc.reset();
-      }
-      break;
-    case 20:
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.println("PWM manual");
-
-      if (testing_mode)
-      {
-        oled.println("ativo");
-        // oled.println(test_delay);
-      }
-      else
-      {
-        oled.println("desativado");
-      }
-      oled.print("duty: ");
-      oled.println(duty);
-
-      oled.print("pwm: ");
-      oled.println((duty * 255) / 100);
-
-      if (enc.hasMoved())
-      {
-        if (enc.getValue() > 0)
-        {
-          if (status != 'm')
-          {
-            duty = 0;
-            testing_mode = true;
-          }
-          status = 'm';
-          duty = duty + 1;
-        }
-        else if (enc.getValue() < 0)
-        {
-          duty = duty - 1;
-          if (duty < 0)
-          {
-            duty = 0;
-            testing_mode = false;
-            status = 'n';
-          }
-        }
-        enc.reset();
-      }
-      break;
-    }
-
-*/
