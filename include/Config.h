@@ -6,7 +6,7 @@
 namespace Cfg {
 
     //                                                    750  1000 1250 ...
-    inline constexpr std::array<int, 26> boost_table0_ = {150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150};
+    inline constexpr std::array<int, 26> boost_table0_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
     inline constexpr std::array<int, 26> boost_table1_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
     inline constexpr std::array<int, 26> boost_table2_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
     inline constexpr std::array<int, 26> rpm_duty_mul_ = { 83,  84,  86,  88,  91,  92,  94,  96,  96,  96,  96,  97,  97, 100, 102, 104, 108, 112, 118, 121, 123, 123, 124, 124, 124, 124};
@@ -22,7 +22,7 @@ namespace Cfg {
     inline constexpr int rpm_min = 750; // index 0
 
     //array para futura compatibilidade com EEPROM
-    inline std::array<int, 18> cfg_data = {
+    inline std::array<int, 19> cfg_data = {
         900, // 0: idle rpm
         0,   // 1: selected map
 
@@ -48,6 +48,8 @@ namespace Cfg {
         62,     // 16: base duty
 
         278,    // 17: map_cal
+
+        150,    // 18: set pressure
     }; 
 
     // config aliases
@@ -69,6 +71,7 @@ namespace Cfg {
     inline int& base_kpa = cfg_data[15];
     inline int& base_duty = cfg_data[16];
     inline int& map_cal = cfg_data[17];
+    inline int& set_pressure = cfg_data[18];
 }
 
 #endif

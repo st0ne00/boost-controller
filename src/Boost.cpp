@@ -39,26 +39,13 @@ void Boost::update_boost(int current_pressure) { //pascal e rpm
     if(pressure_index >= bufferSize) {
         pressure_index = 0;
     }
-    
-    // retirar boost rate mais antigo do somatório, adicionar novo boost rate e atualizar buffer
-    //boost_rate_sum -= boost_rates[boost_rate_index];
-    //boost_rates[boost_rate_index] = small_boost_rate;
-    //boost_rate_sum += boost_rates[boost_rate_index];
-
-    // calcular boost rate médio dos samples
-    //boost_rate = boost_rate_sum / boost_rates.size();
-    
-    //boost_rate_index++;
-    //if(boost_rate_index >= boost_rates.size()) {
-    //    boost_rate_index = 0;
-    //}
 }
 
 int Boost::loop(int rpm, int rpm_index, int throttle) {
     // calcular boost requisitado
     throttle = 100; // teste
 
-    req_pressure = calc_abs_req(Cfg::mapa1[Cfg::selected_map][rpm_index], throttle);
+    req_pressure = calc_abs_req(rpm_index, throttle);
     error = req_pressure - pressure;
 
     // check rpm idle
@@ -106,8 +93,9 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
     return state;
 }
 
-int Boost::calc_abs_req(int map_kpa, int throttle) { // retorna a pressão absoluta requisitada em pascal
-    int boost_req = (((map_kpa * 1000) - atm_pressure) * throttle) / 100; // pascal
+int Boost::calc_abs_req(int rpm_index, int throttle) { // retorna a pressão absoluta requisitada em pascal
+    int abs_mapa = (Cfg::set_pressure * Cfg::mapa1[Cfg::selected_map][rpm_index]) * 10; // pressão absoluta em pascal - de acordo com mapa de rpm e pressão selecionada
+    int boost_req = ((abs_mapa - atm_pressure) * throttle) / 100;
     return boost_req + atm_pressure;
 }
 

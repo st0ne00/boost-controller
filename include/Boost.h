@@ -5,22 +5,6 @@
 #include <vector>
 #include "Config.h"
 
-/*
-#define ABS_PRESSURE 0
-#define ATM_PRESSURE 1
-#define BOOST_RATE 2
-#define STATE 3
-#define DUTY 4
-#define INTEGRAL 5
-#define ERROR 6
-#define REQ_PRESSURE 7
-#define PID_P 8
-#define PID_I 9
-#define PID_D 10
-#define PID 11
-#define BASE 12
-*/
-
 class Boost {
     public:
         Boost(int update_frequency = 1000, int boost_samples = 5, int boost_rate_samples = 10);
