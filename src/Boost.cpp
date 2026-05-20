@@ -42,6 +42,12 @@ void Boost::update_boost(int current_pressure) { //pascal e rpm
 }
 
 int Boost::loop(int rpm, int rpm_index, int throttle) {
+    // checar se a pressão é inválida - sensor desconectado
+    if(pressure < 40000) {
+        state = -1;
+        duty = 0;
+        return state;
+    }
     // calcular boost requisitado
     throttle = 100; // teste
 
@@ -54,6 +60,10 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
     }
 
     switch(state) {
+        default:
+            // error state
+            duty = 0;
+            break;
         case State::IDLE: // IDLE
             if(rpm > (Cfg::idle_rpm + 50)) {
                 state = State::SPOOL;

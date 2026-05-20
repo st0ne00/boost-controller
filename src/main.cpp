@@ -263,6 +263,9 @@ void loop()
         oled.setTextSize(2);
         oled.setCursor(0, 48);
         switch(boost.get_data(Boost::STATE)) {
+          default:
+            oled.print("ERROR");
+            break;
           case Boost::IDLE:
             oled.print("IDLE");
             break;
