@@ -1,9 +1,11 @@
 #include <Arduino.h>
+#include <SPI.h>
 
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 
 #include "Config.h"
+#include "Flash.h"
 #include "Rotary.h"
 #include "Fase.h"
 #include "Boost.h"
@@ -14,7 +16,7 @@
 #define ROT_CK PB5
 #define PHASE_PIN PB12
 #define MAP_PIN PB1
-#define WG_PIN PA7
+#define WG_PIN PB0
 #define LED_PIN PC13
 
 #define BT_PIN PA0
@@ -44,6 +46,10 @@ int8_t display_page = 0;
 uint32_t last_display_time = 0;
 uint32_t last_led_time = 0;
 
+
+SPIClass spi1(FLASH_MOSI, FLASH_MISO, FLASH_SCK);
+Flash flash(spi1, FLASH_CS);
+
 Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
 
 HardwareTimer *timer;
@@ -55,6 +61,7 @@ Boost boost(PID_FREQ, 10, 10);
 
 enum DisplayPage {
   MAIN,
+  CFG_LOAD,
   ADJ_PRESSAO,
   ADJ_KP,
   ADJ_KI,
@@ -66,6 +73,8 @@ enum DisplayPage {
   ADJ_BASE_DUTY,
   ADJ_BASE_KPA,
   ADJ_MAP_CAL,
+  CFG_SAVE,
+  CFG_RESET
 };
 
 void enc_isr();
@@ -88,6 +97,7 @@ unsigned int get_rpm_index(int rpm)
   return index;
 }
 
+bool eeprom_ok = false;
 void setup()
 {
   debug.begin(115200);
@@ -103,12 +113,37 @@ void setup()
 
   delay(200);
 
+  // oled init
   if (!oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR))
   {
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 4; i++)
     {
       digitalWrite(LED_BUILTIN, 1);
+      delay(300);
+      digitalWrite(LED_BUILTIN, 0);
+      delay(300);
+    }
+  }
+
+  // SPI flash init
+  spi1.begin();
+  if (!flash.init()) {
+    for (int i = 0; i < 10; i++)
+    {
+      oled.clearDisplay();
+      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+      oled.setTextSize(2);
+      oled.setCursor(0, 0);
+      oled.println("FLASH FAIL");
+      oled.display();
+      digitalWrite(LED_BUILTIN, 1);
       delay(100);
+      oled.clearDisplay();
+      oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+      oled.setTextSize(2);
+      oled.setCursor(0, 0);
+      oled.println("FLASH FAIL");
+      oled.display();
       digitalWrite(LED_BUILTIN, 0);
       delay(100);
     }
@@ -116,7 +151,7 @@ void setup()
 
   oled.clearDisplay();
   oled.setTextSize(1);
-  oled.setTextColor(SSD1306_WHITE);
+  oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
   oled.setCursor(0, 0);
   oled.display();
 
@@ -149,6 +184,7 @@ void loop()
       test_delay = 0;
       testing_mode = false;
       status = 'n';
+      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
       display_page = 0;
     }
     oled.clearDisplay();
@@ -159,6 +195,7 @@ void loop()
       test_delay = 0;
       testing_mode = false;
       status = 'n';
+      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
       display_page++;
     }
 
@@ -247,7 +284,73 @@ void loop()
         oled.setCursor(90, 48);
         oled.print(boost.get_data(Boost::DUTY));
         oled.print("%");
-        break; 
+        break;
+      case CFG_SAVE:
+        oled.setTextSize(2);
+        // linha 1
+        oled.println("Salvar CFG");
+        // linha 2
+        oled.print("Flash ");
+        if (flash.is_ok()) {
+          oled.println("OK");
+        } else {
+          oled.println("ER");
+        }
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            if(flash.save_config()) {
+              oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+              oled.println("Cfg salva!");
+            } else {
+              oled.println("Cfg erro!");
+            }
+          }
+          enc.reset();
+        }
+        break;
+      case CFG_LOAD:
+        oled.setTextSize(2);
+        // linha 1
+        oled.println("Load CFG");
+        // linha 2
+        oled.print("Flash ");
+        if (flash.is_ok()) {
+          oled.println("OK");
+        } else {
+          oled.println("ER");
+        }
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            if(flash.read_config()) {
+              oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+              oled.println("Cfg load!");
+            } else {
+              oled.println("Cfg erro!");
+            }
+          }
+          enc.reset();
+        }
+        break;
+      case CFG_RESET:
+        oled.setTextSize(2);
+        // linha 1
+        oled.println("Reset CFG");
+        
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::cfg_data = Cfg::cfg_default;
+            oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+            oled.println("Cfg Reset!");
+          }
+          enc.reset();
+        }
+        break;
       case ADJ_KP:
         oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
         oled.setTextSize(2);

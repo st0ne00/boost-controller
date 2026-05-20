@@ -2,6 +2,12 @@
 #define CONFIG_H
 
 #include <array>
+#include <Adafruit_SPIFlash.h>
+
+#define FLASH_CS   PA4
+#define FLASH_SCK  PA5
+#define FLASH_MISO PA6
+#define FLASH_MOSI PA7
 
 namespace Cfg {
 
@@ -9,8 +15,8 @@ namespace Cfg {
     inline constexpr std::array<int, 26> boost_table0_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
     inline constexpr std::array<int, 26> boost_table1_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
     inline constexpr std::array<int, 26> boost_table2_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
-    inline constexpr std::array<int, 26> rpm_duty_mul_ = { 83,  84,  86,  88,  91,  92,  94,  96,  96,  96,  96,  97,  97, 100, 102, 104, 108, 112, 118, 121, 123, 123, 124, 124, 124, 124};
-
+    //inline constexpr std::array<int, 26> rpm_duty_mul_ = { 83,  84,  86,  88,  91,  92,  94,  96,  96,  96,  96,  97,  97, 100, 102, 104, 108, 112, 118, 121, 123, 123, 124, 124, 124, 124};
+    inline constexpr std::array<int, 26> rpm_duty_mul_ = {70,  72,  75,  78,  80,  82,  83,  85,  87,  89,  92,  95,  98, 100, 104, 108, 113, 118, 122, 126, 129, 132, 134, 135, 136, 136};
     inline constexpr const int* mapa1[] = {
             boost_table0_.data(),
             boost_table1_.data(),
@@ -22,7 +28,7 @@ namespace Cfg {
     inline constexpr int rpm_min = 750; // index 0
 
     //array para futura compatibilidade com EEPROM
-    inline std::array<int, 19> cfg_data = {
+    inline std::array<int, 19> cfg_default = {
         900, // 0: idle rpm
         0,   // 1: selected map
 
@@ -30,16 +36,16 @@ namespace Cfg {
         80,  // 3: max duty
         10,  // 4: min duty
 
-        20000,  // 5: spool end error
+        40000,  // 5: spool end error
         70000,  // 6: pre-peak duty mul
-        1000,  // 7: pre-peak end error
+        0,  // 7: pre-peak end error
 
         100, // 8: peak duty mul
         -4,  // 9: peak end error
 
-        100,   // 10: constante P
-        100,   // 11: constante I
-        100,   // 12: constante D
+        10,   // 10: constante P
+        20,   // 11: constante I
+        200,   // 12: constante D
         1000000, // 13: integral limit
 
         10000,   // 14: cut threshold
@@ -47,10 +53,12 @@ namespace Cfg {
         210,   // 15: base Kpa
         62,     // 16: base duty
 
-        278,    // 17: map_cal
+        270,    // 17: map_cal
 
-        150,    // 18: set pressure
-    }; 
+        175,    // 18: set pressure
+    };
+
+    inline std::array<int, 19> cfg_data = cfg_default;
 
     // config aliases
     inline int& idle_rpm     = cfg_data[0];
@@ -72,6 +80,22 @@ namespace Cfg {
     inline int& base_duty = cfg_data[16];
     inline int& map_cal = cfg_data[17];
     inline int& set_pressure = cfg_data[18];
+
+    static const SPIFlash_Device_t flash_MX25L8006E = {
+        .total_size = 1 * 1024 * 1024,   // 1 Megabyte total capacity
+        .manufacturer_id = 0xC2,          // Macronix ID
+        .memory_type = 0x20,              // Flash type
+        .capacity = 0x14,                 // 8Mb density flag
+        
+        // Feature bitflags
+        .has_sector_protection = false,
+        .supports_fast_read = true,
+        .supports_qspi = false,
+        .supports_qspi_writes = false,
+        .write_status_register_split = false,
+        .single_status_byte = true,
+        .is_fram = false
+    };
 }
 
 #endif
