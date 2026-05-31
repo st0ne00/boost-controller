@@ -63,6 +63,7 @@ enum DisplayPage {
   MAIN,
   CFG_LOAD,
   ADJ_PRESSAO,
+  ADJ_MAPA,
   ADJ_KP,
   ADJ_KI,
   ADJ_KD,
@@ -350,6 +351,33 @@ void loop()
             Cfg::cfg_data = Cfg::cfg_default;
             oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
             oled.println("Cfg Reset!");
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_MAPA:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.println("MAPA");
+        oled.print("table = ");
+        oled.println(Cfg::selected_map);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            if(Cfg::selected_map + 1 > 2) {
+              Cfg::selected_map = 2;
+            } else {
+              Cfg::selected_map += 1;
+            }
+          }
+          else if (enc.getValue() < 0)
+          {
+            if(Cfg::selected_map - 1 < 0) {
+              Cfg::selected_map = 0;
+            } else {
+              Cfg::selected_map -= 1;
+            }
           }
           enc.reset();
         }

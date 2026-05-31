@@ -11,8 +11,8 @@
 
 namespace Cfg {
 
-    //                                                    750  1000 1250 ...
-    inline constexpr std::array<int, 26> boost_table0_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
+    //                                                    750 1000 1250 1500 1750 2000 2250 2500 2750 3000 3250 3500 3750 4000 4250 4500 4750 5000 5250 5500 5750 6000 6250 6500 6750 7000
+    inline constexpr std::array<int, 26> boost_table0_ = { 80,  82,  84,  86,  88,  90,  92,  96, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,  98,  96,  94,  90,  80,  80};
     inline constexpr std::array<int, 26> boost_table1_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
     inline constexpr std::array<int, 26> boost_table2_ = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
     //inline constexpr std::array<int, 26> rpm_duty_mul_ = { 83,  84,  86,  88,  91,  92,  94,  96,  96,  96,  96,  97,  97, 100, 102, 104, 108, 112, 118, 121, 123, 123, 124, 124, 124, 124};
@@ -36,26 +36,26 @@ namespace Cfg {
         80,  // 3: max duty
         10,  // 4: min duty
 
-        40000,  // 5: spool end error
-        70000,  // 6: pre-peak duty mul
-        0,  // 7: pre-peak end error
+        50000,  // 5: spool end error
+        0,  // 6: 
+        10000,  // 7: pre-peak end error
 
-        100, // 8: peak duty mul
-        -4,  // 9: peak end error
+        0, // 8: 
+        0,  // 9: 
 
         10,   // 10: constante P
         20,   // 11: constante I
         200,   // 12: constante D
         1000000, // 13: integral limit
 
-        10000,   // 14: cut threshold
+        40000,   // 14: + atm -> cut threshold
 
         210,   // 15: base Kpa
         62,     // 16: base duty
 
         270,    // 17: map_cal
 
-        175,    // 18: set pressure
+        175,    // 18: max pressure
     };
 
     inline std::array<int, 19> cfg_data = cfg_default;
