@@ -18,6 +18,7 @@
 #define MAP_PIN PB1
 #define WG_PIN PB0
 #define LED_PIN PC13
+#define THROTTLE_PIN PA2
 
 #define BT_PIN PA0
 
@@ -106,6 +107,7 @@ void setup()
   Wire.setClock(400000);
 
   pinMode(MAP_PIN, INPUT);
+  pinMode(THROTTLE_PIN, INPUT);
 
   pinMode(LED_PIN, OUTPUT);
   pinMode(WG_PIN, OUTPUT);
@@ -172,6 +174,8 @@ void setup()
 int raw_map = 0;
 int pa_map = 0;
 int rpm = 0;
+int raw_thr = 0;
+int thr = 0;
 
 void loop()
 {
@@ -617,10 +621,15 @@ void loop()
 void control_isr() { // rodando a cada 1 ms
   raw_map = analogRead(MAP_PIN);
   pa_map = raw_map * Cfg::map_cal; // pascal
+
+  raw_thr = analogRead(THROTTLE_PIN);
+  thr = (raw_thr * 100) / Cfg::thr_cal; // % pedal acelerador
+
   rpm = fase.getRPM();
   int rpm_index = get_rpm_index(rpm);
+
   boost.update_boost(pa_map);
-  boost.loop(rpm, rpm_index, 100);
+  boost.loop(rpm, rpm_index, thr);
   analogWrite(WG_PIN, (boost.get_data(Boost::DUTY) * 255) / 100);
 }
 

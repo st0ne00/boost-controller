@@ -48,9 +48,8 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
         duty = 0;
         return state;
     }
-    // calcular boost requisitado
-    throttle = 100; // teste
 
+    // calcular boost requisitado
     req_pressure = calc_abs_req(rpm_index, throttle);
     error = req_pressure - pressure;
 
@@ -65,7 +64,7 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
             duty = 0;
             break;
         case State::IDLE: // IDLE
-            if(rpm > (Cfg::idle_rpm + 50)) {
+            if(rpm > (Cfg::idle_rpm + 50) && throttle >= 15) {
                 state = State::SPOOL;
             } else {
                 duty = Cfg::idle_duty;
@@ -84,15 +83,25 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
             if(error < Cfg::err_pre_peak_end) {
                 state = State::MESA;
             }
+            if(throttle < 15) {
+                state = State::CUT;
+            }
+            /*
             if(pressure < atm_pressure + Cfg::cut_threshold) {
                 state = State::CUT;
             }
+            */
             break;
         case State::MESA: // MESA
             duty = calc_duty(req_pressure, error, rpm_index, true, true, true); // duty = base + PID
+            if(throttle < 15) {
+                state = State::CUT;
+            }
+            /*
             if(pressure < atm_pressure + Cfg::cut_threshold) {
                 state = State::CUT;
             }
+            */
             break;
         case State::CUT: // CUT
             // reset integral e voltar preparar próximo spool
@@ -104,6 +113,12 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
 }
 
 int Boost::calc_abs_req(int rpm_index, int throttle) { // retorna a pressão absoluta requisitada em pascal
+    if(throttle > 100) {
+        throttle = 100;
+    } else if(throttle < 0) {
+        throttle = 0;
+    }
+    
     int abs_mapa = (Cfg::set_pressure * Cfg::mapa1[Cfg::selected_map][rpm_index]) * 10; // pressão absoluta em pascal - de acordo com mapa de rpm e pressão selecionada
     int boost_req = ((abs_mapa - atm_pressure) * throttle) / 100;
     return boost_req + atm_pressure;

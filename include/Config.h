@@ -37,10 +37,10 @@ namespace Cfg {
         10,  // 4: min duty
 
         50000,  // 5: spool end error
-        0,  // 6: 
+        775,    // 6: calib throttle
         10000,  // 7: pre-peak end error
 
-        0, // 8: 
+        120,      // 8: min pressure
         0,  // 9: 
 
         10,   // 10: constante P
@@ -55,7 +55,7 @@ namespace Cfg {
 
         270,    // 17: map_cal
 
-        175,    // 18: max pressure
+        185,    // 18: max pressure
     };
 
     inline std::array<int, 19> cfg_data = cfg_default;
@@ -67,9 +67,9 @@ namespace Cfg {
     inline int& max_duty     = cfg_data[3];
     inline int& min_duty = cfg_data[4];
     inline int& err_spool_end = cfg_data[5];
-    inline int& mul_pre_peak_duty = cfg_data[6];
+    inline int& thr_cal = cfg_data[6];
     inline int& err_pre_peak_end = cfg_data[7];
-    inline int& mul_peak_duty = cfg_data[8];
+    inline int& min_pressure = cfg_data[8];
     inline int& err_peak_end = cfg_data[9];
     inline int& kp = cfg_data[10];
     inline int& ki = cfg_data[11];
