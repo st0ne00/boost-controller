@@ -55,7 +55,7 @@ namespace Cfg {
 
         270,    // 17: map_cal
 
-        185,    // 18: max pressure
+        190,    // 18: max pressure
     };
 
     inline std::array<int, 19> cfg_data = cfg_default;

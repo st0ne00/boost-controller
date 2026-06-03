@@ -63,22 +63,25 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
             // error state
             duty = 0;
             break;
-        case State::IDLE: // IDLE
-            if(rpm > (Cfg::idle_rpm + 50) && throttle >= 15) {
+        case State::IDLE:
+            duty = Cfg::idle_duty;
+            if(throttle >= 15) {
+                // iniciar spool apenas quando o acelerador for pressionado
                 state = State::SPOOL;
-            } else {
-                duty = Cfg::idle_duty;
+            }
+            if(rpm < (Cfg::idle_rpm + 50)) {
+                // obter pressão atmosférica apenas quando o motor estiver em marcha lenta
                 atm_pressure = pressure;
             }
             break;
-        case State::SPOOL: // SPOOL
+        case State::SPOOL:
             duty = Cfg::max_duty;
             // obter boost rate durante o spooling para usar como multiplicador no PEAK
             if(error < Cfg::err_spool_end) {
                 state = State::PEAK;
             }
             break;
-        case State::PEAK: // pre-PEAK
+        case State::PEAK:
             duty = calc_duty(req_pressure, error, rpm_index, false, false, true); // duty = base + D
             if(error < Cfg::err_pre_peak_end) {
                 state = State::MESA;
@@ -92,7 +95,7 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
             }
             */
             break;
-        case State::MESA: // MESA
+        case State::MESA:
             duty = calc_duty(req_pressure, error, rpm_index, true, true, true); // duty = base + PID
             if(throttle < 15) {
                 state = State::CUT;
@@ -103,7 +106,7 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
             }
             */
             break;
-        case State::CUT: // CUT
+        case State::CUT:
             // reset integral e voltar preparar próximo spool
             duty = calc_duty(req_pressure, error, rpm_index, false, false, false); // duty = base
             state = State::IDLE;
@@ -118,10 +121,19 @@ int Boost::calc_abs_req(int rpm_index, int throttle) { // retorna a pressão abs
     } else if(throttle < 0) {
         throttle = 0;
     }
+
+    // pressão absoluta máxima permitida pelo mapa (pascal)
+    int max_pres_rpm = (Cfg::set_pressure * Cfg::mapa1[Cfg::selected_map][rpm_index]) * 10;
     
-    int abs_mapa = (Cfg::set_pressure * Cfg::mapa1[Cfg::selected_map][rpm_index]) * 10; // pressão absoluta em pascal - de acordo com mapa de rpm e pressão selecionada
-    int boost_req = ((abs_mapa - atm_pressure) * throttle) / 100;
-    return boost_req + atm_pressure;
+    // pressão requisitada pelo acelerador
+    int req_boost_thr = (((Cfg::set_pressure * 1000) - atm_pressure) * throttle) / 100;
+    int req_pres_thr = req_boost_thr + atm_pressure;
+
+    if(req_pres_thr > max_pres_rpm) {
+        return max_pres_rpm;
+    } else {
+        return req_pres_thr;
+    }
 }
 
 int Boost::calc_duty(int abs_request, int error, int rpm_index, bool p_enabled, bool i_enabled, bool d_enabled) {
