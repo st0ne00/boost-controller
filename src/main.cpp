@@ -1,25 +1,30 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include <Wire.h>
 
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
+#include <Adafruit_MCP4725.h>
 
 #include "Config.h"
 #include "Flash.h"
 #include "Rotary.h"
 #include "Fase.h"
 #include "Boost.h"
+#include "Iat.h"
 
 // PINOS
 #define ROT_SW PB3
-#define ROT_DT PB4
+#define ROT_DT PA15
 #define ROT_CK PB5
 #define PHASE_PIN PB12
 #define MAP_PIN PB1
 #define WG_PIN PB0
 #define LED_PIN PC13
 #define THROTTLE_PIN PA2
-
+#define IAT_PIN PA1
+#define I2C3_SDA PB4
+#define I2C3_SCL PA8
 #define BT_PIN PA0
 
 // DISPLAY
@@ -34,6 +39,8 @@
 #define RPM_MAX 6500
 #define RPM_STEPS 250
 
+#define IAT_RESISTOR 2160
+
 // TELEMETRY
 bool testing_mode = false;
 uint32_t test_time = 0;
@@ -47,7 +54,7 @@ int8_t display_page = 0;
 uint32_t last_display_time = 0;
 uint32_t last_led_time = 0;
 
-
+TwoWire Wire3(I2C3_SDA, I2C3_SCL);
 SPIClass spi1(FLASH_MOSI, FLASH_MISO, FLASH_SCK);
 Flash flash(spi1, FLASH_CS);
 
@@ -59,9 +66,13 @@ HardwareSerial debug(PA3, PA2); // RX, TX
 Rotary enc(ROT_SW, ROT_CK, ROT_DT);
 Fase fase(PHASE_PIN);
 Boost boost(PID_FREQ, 10, 10);
+Iat iat(10);
+
+Adafruit_MCP4725 dac;
 
 enum DisplayPage {
   MAIN,
+  IAT_TEST,
   CFG_LOAD,
   ADJ_PRESSAO,
   ADJ_MAPA,
@@ -102,17 +113,19 @@ unsigned int get_rpm_index(int rpm)
 bool eeprom_ok = false;
 void setup()
 {
+  pinMode(MAP_PIN, INPUT);
+  pinMode(THROTTLE_PIN, INPUT);
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(WG_PIN, OUTPUT);
+  pinMode(BT_PIN, INPUT_PULLUP);
+
   debug.begin(115200);
+
   Wire.begin();
   Wire.setClock(400000);
 
-  pinMode(MAP_PIN, INPUT);
-  pinMode(THROTTLE_PIN, INPUT);
-
-  pinMode(LED_PIN, OUTPUT);
-  pinMode(WG_PIN, OUTPUT);
-
-  pinMode(BT_PIN, INPUT_PULLUP);
+  Wire3.begin();
+  Wire3.setClock(400000);
 
   delay(200);
 
@@ -125,6 +138,29 @@ void setup()
       delay(300);
       digitalWrite(LED_BUILTIN, 0);
       delay(300);
+    }
+  }
+
+  // DAC init
+  if(!dac.begin(0x60, &Wire3)) {
+    for (int i = 0; i < 10; i++)
+    {
+      oled.clearDisplay();
+      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+      oled.setTextSize(2);
+      oled.setCursor(0, 0);
+      oled.println("DAC FAIL");
+      oled.display();
+      digitalWrite(LED_BUILTIN, 1);
+      delay(100);
+      oled.clearDisplay();
+      oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+      oled.setTextSize(2);
+      oled.setCursor(0, 0);
+      oled.println("DAC FAIL");
+      oled.display();
+      digitalWrite(LED_BUILTIN, 0);
+      delay(100);
     }
   }
 
@@ -177,6 +213,9 @@ int rpm = 0;
 int raw_thr = 0;
 int thr = 0;
 
+int raw_iat = 0;
+int v_iat = 0;
+
 void loop()
 {
   digitalWrite(LED_BUILTIN, ledState);
@@ -219,9 +258,9 @@ void loop()
         //linha 1 col 2
         oled.setCursor(62, 0);
         oled.setTextSize(2);
-        oled.print(rpm);
+        oled.print(iat.get_data(Iat::IAT_INPUT_C));
         oled.setTextSize(1);
-        oled.print("rpm");
+        oled.print("C");
 
         oled.setTextSize(1);
         //linha 2 col 1
@@ -231,8 +270,8 @@ void loop()
 
         //linha 2 col 2
         oled.setCursor(60, 16);
-        oled.print("base ");
-        oled.print(boost.get_data(Boost::BASE));
+        oled.print("rpm ");
+        oled.print(rpm);
 
         //linha 3 col 1
         oled.setCursor(0, 24);
@@ -292,6 +331,32 @@ void loop()
         oled.setCursor(90, 48);
         oled.print(boost.get_data(Boost::DUTY));
         oled.print("%");
+        break;
+      case IAT_TEST:
+        oled.setTextSize(2);
+        // linha 1
+        oled.println("IAT TEST");
+        // linha 2
+        oled.setTextSize(1);
+        oled.setCursor(0, 16);
+        oled.print("mv in     = ");
+        oled.println(iat.get_data(Iat::IAT_INPUT_MV));
+
+        oled.print("mv out    = ");
+        oled.println(iat.get_data(Iat::IAT_OUTPUT_MV));
+
+        oled.print("IAT K in  = ");
+        oled.println(iat.get_data(Iat::IAT_INPUT_K));
+        // linha 3
+        oled.print("IAT K out = ");
+        oled.println(iat.get_data(Iat::IAT_OUTPUT_K));
+        // linha 4
+        oled.print("IAT C in = ");
+        oled.println(iat.get_data(Iat::IAT_OUTPUT_C));
+
+        oled.print("IAT C out = ");
+        oled.println(iat.get_data(Iat::IAT_OUTPUT_C));
+        
         break;
       case CFG_SAVE:
         oled.setTextSize(2);
@@ -625,12 +690,20 @@ void control_isr() { // rodando a cada 1 ms
   raw_thr = analogRead(THROTTLE_PIN);
   thr = (raw_thr * 100) / Cfg::thr_cal; // % pedal acelerador
 
+  raw_iat = analogRead(IAT_PIN);
+  v_iat = (raw_iat * 3232) / 1000; // converter para mV
+
   rpm = fase.getRPM();
   int rpm_index = get_rpm_index(rpm);
 
   boost.update_boost(pa_map);
   boost.loop(rpm, rpm_index, thr);
   analogWrite(WG_PIN, (boost.get_data(Boost::DUTY) * 255) / 100);
+
+  iat.update(v_iat);
+  iat.loop(rpm, rpm_index, (boost.get_data(Boost::BOOST)/1000));
+  dac.setVoltage(iat.get_dac_value(), false);
+
 }
 
 void phase_isr()

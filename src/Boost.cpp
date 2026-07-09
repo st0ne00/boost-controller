@@ -206,6 +206,8 @@ int Boost::get_data(Dados type) {
             return pid;
         case BASE:
             return base;
+        case BOOST:
+            return pressure - atm_pressure;
         default:
             return 0;
     }

@@ -30,7 +30,8 @@ class Boost {
             PID_I,
             PID_D,
             PID,
-            BASE
+            BASE,
+            BOOST
         };
         int get_data(Dados type);
 

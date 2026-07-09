@@ -28,7 +28,7 @@ namespace Cfg {
     inline constexpr int rpm_min = 750; // index 0
 
     //array para futura compatibilidade com EEPROM
-    inline std::array<int, 19> cfg_default = {
+    inline std::array<int, 20> cfg_default = {
         900, // 0: idle rpm
         0,   // 1: selected map
 
@@ -41,7 +41,7 @@ namespace Cfg {
         10000,  // 7: pre-peak end error
 
         120,      // 8: min pressure
-        0,  // 9: 
+        10,  // 9: calib IAT
 
         10,   // 10: constante P
         20,   // 11: constante I
@@ -56,9 +56,11 @@ namespace Cfg {
         270,    // 17: map_cal
 
         190,    // 18: max pressure
+
+        50      // 19: boost threshold for enrichment
     };
 
-    inline std::array<int, 19> cfg_data = cfg_default;
+    inline std::array<int, 20> cfg_data = cfg_default;
 
     // config aliases
     inline int& idle_rpm     = cfg_data[0];
@@ -70,7 +72,7 @@ namespace Cfg {
     inline int& thr_cal = cfg_data[6];
     inline int& err_pre_peak_end = cfg_data[7];
     inline int& min_pressure = cfg_data[8];
-    inline int& err_peak_end = cfg_data[9];
+    inline int& iat_cal = cfg_data[9];
     inline int& kp = cfg_data[10];
     inline int& ki = cfg_data[11];
     inline int& kd = cfg_data[12];
@@ -80,6 +82,7 @@ namespace Cfg {
     inline int& base_duty = cfg_data[16];
     inline int& map_cal = cfg_data[17];
     inline int& set_pressure = cfg_data[18];
+    inline int& enrich_threshold = cfg_data[19];
 
     static const SPIFlash_Device_t flash_MX25L8006E = {
         .total_size = 1 * 1024 * 1024,   // 1 Megabyte total capacity
