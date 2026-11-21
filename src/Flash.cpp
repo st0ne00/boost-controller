@@ -43,7 +43,7 @@ bool Flash::read_config() {
     }
     
     // todo: check de integridade melhor
-    if(Cfg::set_pressure > 230) {
+    if(Cfg::base_pressure > 2300 || Cfg::base_pressure < 1) { // corrupt
         // corrupt
         Cfg::cfg_data = Cfg::cfg_default;
     }

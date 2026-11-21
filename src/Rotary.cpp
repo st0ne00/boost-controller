@@ -5,10 +5,11 @@ Rotary::Rotary(int swPin, int clkPin, int dtPin)
     _swp = swPin;
     _ckp = clkPin;
     _dtp = dtPin;
-    _lastClk = false;
+    //_lastClk = false;
     _value = 0;
     _changed = false;
-    _halfMoved = false;
+    _stepAccumulator = 0;
+    //_halfMoved = false;
     _click_time = 0;
     _turn_time = 0;
     _sw_status = 0;
@@ -17,11 +18,12 @@ Rotary::Rotary(int swPin, int clkPin, int dtPin)
 
 void Rotary::init()
 {
-    pinMode(_swp, INPUT_PULLDOWN);
-    pinMode(_ckp, INPUT_PULLDOWN);
-    pinMode(_dtp, INPUT_PULLDOWN);
+    pinMode(_swp, INPUT_PULLUP);
+    pinMode(_ckp, INPUT_PULLUP);
+    pinMode(_dtp, INPUT_PULLUP);
+    _lastState = (digitalRead(_ckp) << 1) | digitalRead(_dtp);
 }
-
+/*
 void Rotary::poll()
 {
     if((millis() - _turn_time) < 2) {
@@ -55,22 +57,56 @@ void Rotary::poll()
     _halfMoved = !_halfMoved;
     _lastClk = current_clk;
 }
+*/
+void Rotary::poll()
+{
+    uint8_t currentState =
+        (digitalRead(_ckp) << 1) | digitalRead(_dtp);
+
+    static const int8_t transitions[16] = {
+         0, -1,  1,  0,
+         1,  0,  0, -1,
+        -1,  0,  0,  1,
+         0,  1, -1,  0
+    };
+
+    uint8_t index = (_lastState << 2) | currentState;
+    int8_t movement = transitions[index];
+
+    _lastState = currentState;
+
+    if (movement != 0) {
+        _stepAccumulator += movement;
+
+        if (_stepAccumulator >= 4 || _stepAccumulator <= -4) {
+            _value += (_stepAccumulator > 0) ? 1 : -1;
+            _stepAccumulator %= 4;
+            _changed = true;
+        }
+    }
+}
 
 bool Rotary::hasMoved()
 {
     return _changed;
 }
 
-int Rotary::getValue()
+int Rotary::getValue(bool reset)
 {
-    _changed = false;
-    return _value;
+    int value = _value;
+    if (reset)
+    {
+        _value = 0;
+        _changed = false;
+    }
+    return value;
 }
 
 void Rotary::reset(int newVal)
 {
     _changed = false;
     _value = newVal;
+    _stepAccumulator = 0;
 }
 
 void Rotary::pollSW()

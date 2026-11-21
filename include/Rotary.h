@@ -10,7 +10,7 @@ public:
     void init();
     void poll();
     bool hasMoved();
-    int getValue();
+    int getValue(bool reset = false);
     void reset(int newVal = 0);
     void pollSW();
     bool hasClicked();
@@ -21,9 +21,10 @@ private:
     int _dtp;
 
     bool _changed;
-    bool _lastClk;
+    uint8_t _lastState;
+    int8_t _stepAccumulator;
 
-    bool _halfMoved;
+    //bool _halfMoved;
     int _value;
     
     unsigned long _click_time;

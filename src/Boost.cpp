@@ -1,31 +1,31 @@
 #include "Boost.h"
 
-Boost::Boost(int update_frequency, int boost_samples, int boost_rate_samples) {
+Boost::Boost(int update_frequency, int boost_samples) {
     pressure = 0;
     pressure_sum = 0;
 
     pressure_values.resize(boost_samples);
     pressure_index = 0;
 
-    update_period = 1;//1000 / update_frequency; // ms
+    update_period_x100 = 100000 / update_frequency; // ms x100
 
     boost_rate = 0;
 
     state = 0;
-    atm_pressure = 100000; // 100 kpa em pascal
+    atm_pressure = 1000; // 100 kpa em mbar
     error = 0;
     integral = 0;   
 }
 
-void Boost::update_boost(int current_pressure) { //pascal e rpm
+void Boost::update_boost(int current_pressure) { //mbar
     // calcular delta de pressão
-    int delta_pa = current_pressure - pressure_values[pressure_index];
+    int delta_mbar = current_pressure - pressure_values[pressure_index];
     
     // converter para INT
     int bufferSize = (int)pressure_values.size();
 
     //calcular boost rate instantâneo entre a pressão mais antiga do buffer e a nova pressão
-    boost_rate = delta_pa / (update_period * bufferSize); // pascal/ms
+    boost_rate = (delta_mbar * 100000) / (update_period_x100 * bufferSize); // mbar/s
 
     // retirar pressão mais antiga do somatório, adicionar nova pressão e atualizar buffer
     pressure_sum -= pressure_values[pressure_index];
@@ -41,31 +41,34 @@ void Boost::update_boost(int current_pressure) { //pascal e rpm
     }
 }
 
-int Boost::loop(int rpm, int rpm_index, int throttle) {
+int Boost::loop(int rpm, int throttle) {
     // checar se a pressão é inválida - sensor desconectado
-    if(pressure < 40000) {
+    if(pressure < 400) {
+        integral = 0;
         state = -1;
         duty = 0;
         return state;
     }
 
     // calcular boost requisitado
-    req_pressure = calc_abs_req(rpm_index, throttle);
+    req_pressure = calc_abs_req(rpm, throttle);
     error = req_pressure - pressure;
 
     // check rpm idle
-    if(rpm < Cfg::idle_rpm) {
-        state = 0;
+    if(rpm <= Cfg::idle_rpm) {
+        state = State::IDLE;
     }
 
     switch(state) {
         default:
             // error state
+            integral = 0;
             duty = 0;
             break;
         case State::IDLE:
             duty = Cfg::idle_duty;
-            if(throttle >= 15) {
+            integral = 0;
+            if(throttle >= (Cfg::min_thr + 3)) {
                 // iniciar spool apenas quando o acelerador for pressionado
                 state = State::SPOOL;
             }
@@ -76,58 +79,51 @@ int Boost::loop(int rpm, int rpm_index, int throttle) {
             break;
         case State::SPOOL:
             duty = Cfg::max_duty;
-            // obter boost rate durante o spooling para usar como multiplicador no PEAK
+            integral = 0;
             if(error < Cfg::err_spool_end) {
-                state = State::PEAK;
-            }
-            break;
-        case State::PEAK:
-            duty = calc_duty(req_pressure, error, rpm_index, false, false, true); // duty = base + D
-            if(error < Cfg::err_pre_peak_end) {
                 state = State::MESA;
             }
-            if(throttle < 15) {
+            if(throttle < Cfg::min_thr) {
                 state = State::CUT;
             }
-            /*
-            if(pressure < atm_pressure + Cfg::cut_threshold) {
-                state = State::CUT;
-            }
-            */
             break;
         case State::MESA:
-            duty = calc_duty(req_pressure, error, rpm_index, true, true, true); // duty = base + PID
-            if(throttle < 15) {
+            duty = calc_duty(req_pressure, error, rpm, true, true, true); // duty = base + PID
+            if(throttle < Cfg::min_thr) {
                 state = State::CUT;
             }
-            /*
-            if(pressure < atm_pressure + Cfg::cut_threshold) {
-                state = State::CUT;
-            }
-            */
             break;
         case State::CUT:
             // reset integral e voltar preparar próximo spool
-            duty = calc_duty(req_pressure, error, rpm_index, false, false, false); // duty = base
+            duty = calc_duty(req_pressure, error, rpm, false, false, false); // duty = base
             state = State::IDLE;
             break;
     }
     return state;
 }
 
-int Boost::calc_abs_req(int rpm_index, int throttle) { // retorna a pressão absoluta requisitada em pascal
-    if(throttle > 100) {
-        throttle = 100;
-    } else if(throttle < 0) {
-        throttle = 0;
-    }
+// retorna a pressão absoluta requisitada em mbar
+int Boost::calc_abs_req(int rpm, int throttle) {
+    // Limitar o pedal ao intervalo que produz boost.
+    const int min_thr = Cfg::min_thr;
+    const int max_thr = Cfg::max_thr;
 
-    // pressão absoluta máxima permitida pelo mapa (pascal)
-    int max_pres_rpm = (Cfg::set_pressure * Cfg::mapa1[Cfg::selected_map][rpm_index]) * 10;
-    
-    // pressão requisitada pelo acelerador
-    int req_boost_thr = (((Cfg::set_pressure * 1000) - atm_pressure) * throttle) / 100;
+    // pressão absoluta máxima permitida pelo mapa (mbar)
+    int max_pres_rpm = (Cfg::base_pressure * get_map_value(Cfg::boost_rpm_mul, rpm)) / 1000;
+
+    // boost requisitado pelo acelerador (mbar)
+    int req_boost_thr = 0;
+    if (max_thr > min_thr && throttle > min_thr) {
+        if (throttle > max_thr) {
+            throttle = max_thr;
+        }
+        req_boost_thr = ((Cfg::base_pressure - atm_pressure) * (throttle - min_thr)) / (max_thr - min_thr);
+    }
     int req_pres_thr = req_boost_thr + atm_pressure;
+
+    if (max_pres_rpm < atm_pressure) {
+        max_pres_rpm = atm_pressure;
+    }
 
     if(req_pres_thr > max_pres_rpm) {
         return max_pres_rpm;
@@ -136,12 +132,12 @@ int Boost::calc_abs_req(int rpm_index, int throttle) { // retorna a pressão abs
     }
 }
 
-int Boost::calc_duty(int abs_request, int error, int rpm_index, bool p_enabled, bool i_enabled, bool d_enabled) {
-    base = ((abs_request / Cfg::base_kpa) * Cfg::base_duty); // duty base x1000 (pascal)
-    base = (base * Cfg::rpm_duty_mul_[rpm_index]) / 100000; // base x1000 * mul x100 / 100000 --> ajuste de escala do duty base
+int Boost::calc_duty(int abs_request, int error, int rpm, bool p_enabled, bool i_enabled, bool d_enabled) {
+    base = (abs_request * Cfg::base_duty) / Cfg::base_pressure; // duty base x10
+    base = (base * get_map_value(Cfg::duty_rpm_mul, rpm)) / 1000; // duty base x10 ajustado pelo mapa duty x rpm
 
     if(p_enabled) {
-        pid_p = (Cfg::kp * error) / 100000;
+        pid_p = (Cfg::kp * error) / 100; // KP = 1000 --> 1 mbar erro = 1% duty (pid_p = 10)
     } else {
         pid_p = 0;
     }
@@ -153,7 +149,7 @@ int Boost::calc_duty(int abs_request, int error, int rpm_index, bool p_enabled, 
         } else if(integral < (-Cfg::integral_limit)) {
             integral = -Cfg::integral_limit;
         }
-        pid_i = (Cfg::ki * integral) / 10000000;
+        pid_i = (Cfg::ki * integral) / 100000; // KI = 1000 --> 1 mbar/segundo = 1% duty (pid_i = 10)
     } else {
         // resetar integral
         pid_i = 0;
@@ -161,12 +157,12 @@ int Boost::calc_duty(int abs_request, int error, int rpm_index, bool p_enabled, 
     }
 
     if(d_enabled) {
-        pid_d = (Cfg::kd * boost_rate) / 10000;
+        pid_d = (Cfg::kd * boost_rate) / 100000; // KD = 1000 --> 1000 mbar/s boost rate = 1% duty (pid_d = 10)
     } else {
         pid_d = 0;
     }
     
-    pid = (pid_p + pid_i - pid_d); // ajuste de escala do PID
+    pid = (pid_p + pid_i - pid_d);
     int output = base + pid;
 
     if(output > Cfg::max_duty) {
@@ -176,6 +172,26 @@ int Boost::calc_duty(int abs_request, int error, int rpm_index, bool p_enabled, 
     }
 
     return output;
+}
+
+int32_t Boost::get_map_value(const std::array<int, Cfg::rpm_steps>& map, int rpm)
+{
+    constexpr int last = Cfg::rpm_steps - 1;
+    constexpr int max_rpm = Cfg::rpm_min + last * Cfg::rpm_step;
+    //constexpr int32_t scale = 10;
+
+    if (rpm <= Cfg::rpm_min) return int32_t(map[0]);// * scale;
+    if (rpm >= max_rpm) return int32_t(map[last]);// * scale;
+
+    const int offset = rpm - Cfg::rpm_min;
+    const int index = offset / Cfg::rpm_step;
+    const int remainder = offset % Cfg::rpm_step;
+
+    const int32_t lower = int32_t(map[index]);// * scale;
+    const int32_t difference =
+        (int32_t(map[index + 1]) - map[index]);// * scale;
+
+    return lower + difference * remainder / Cfg::rpm_step;
 }
 
 int Boost::get_data(Dados type) {

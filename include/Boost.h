@@ -7,9 +7,9 @@
 
 class Boost {
     public:
-        Boost(int update_frequency = 1000, int boost_samples = 5, int boost_rate_samples = 10);
+        Boost(int update_frequency = 1, int boost_samples = 10);
         void update_boost(int current_pressure);
-        int loop(int rpm, int rpm_index, int throttle);
+        int loop(int rpm, int throttle);
         enum State {
             IDLE,
             SPOOL,
@@ -36,7 +36,7 @@ class Boost {
         int get_data(Dados type);
 
     private:
-        int update_period; // ms
+        int update_period_x100; // ms
         
         int pressure;
         int pressure_index;
@@ -60,7 +60,7 @@ class Boost {
         int pid_i;
         int pid_d;
         int pid;
-
+        int32_t get_map_value(const std::array<int, Cfg::rpm_steps>& map, int rpm);
         int calc_abs_req(int map_kpa, int throttle);
         int calc_duty(int abs_request, int error, int rpm_index, bool p_enabled, bool i_enabled, bool d_enabled);
 };

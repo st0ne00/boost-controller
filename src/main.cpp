@@ -4,14 +4,12 @@
 
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_MCP4725.h>
 
 #include "Config.h"
 #include "Flash.h"
 #include "Rotary.h"
 #include "Fase.h"
 #include "Boost.h"
-#include "Iat.h"
 
 // PINOS
 #define ROT_SW PB3
@@ -39,8 +37,6 @@
 #define RPM_MAX 6500
 #define RPM_STEPS 250
 
-#define IAT_RESISTOR 2160
-
 // TELEMETRY
 bool testing_mode = false;
 uint32_t test_time = 0;
@@ -65,16 +61,15 @@ HardwareTimer *timer;
 HardwareSerial debug(PA3, PA2); // RX, TX
 Rotary enc(ROT_SW, ROT_CK, ROT_DT);
 Fase fase(PHASE_PIN);
-Boost boost(PID_FREQ, 10, 10);
-Iat iat(10);
-
-Adafruit_MCP4725 dac;
+Boost boost(PID_FREQ, 10);
 
 enum DisplayPage {
   MAIN,
   IAT_TEST,
   CFG_LOAD,
   ADJ_PRESSAO,
+  ADJ_IAT_DROP,
+  ADJ_ENRICH_BOOST,
   ADJ_MAPA,
   ADJ_KP,
   ADJ_KI,
@@ -141,29 +136,6 @@ void setup()
     }
   }
 
-  // DAC init
-  if(!dac.begin(0x60, &Wire3)) {
-    for (int i = 0; i < 10; i++)
-    {
-      oled.clearDisplay();
-      oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      oled.setTextSize(2);
-      oled.setCursor(0, 0);
-      oled.println("DAC FAIL");
-      oled.display();
-      digitalWrite(LED_BUILTIN, 1);
-      delay(100);
-      oled.clearDisplay();
-      oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-      oled.setTextSize(2);
-      oled.setCursor(0, 0);
-      oled.println("DAC FAIL");
-      oled.display();
-      digitalWrite(LED_BUILTIN, 0);
-      delay(100);
-    }
-  }
-
   // SPI flash init
   spi1.begin();
   if (!flash.init()) {
@@ -202,13 +174,17 @@ void setup()
   timer->attachInterrupt(control_isr);
   timer->resume();
 
-  attachInterrupt(digitalPinToInterrupt(ROT_CK), enc_isr, CHANGE);
+
   attachInterrupt(digitalPinToInterrupt(ROT_SW), sw_isr, CHANGE);
+
+  attachInterrupt(digitalPinToInterrupt(ROT_CK), enc_isr, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ROT_DT), enc_isr, CHANGE);
+
   attachInterrupt(digitalPinToInterrupt(PHASE_PIN), phase_isr, RISING);
 }
 
 int raw_map = 0;
-int pa_map = 0;
+int mbar_map = 0;
 int rpm = 0;
 int raw_thr = 0;
 int thr = 0;
@@ -258,9 +234,9 @@ void loop()
         //linha 1 col 2
         oled.setCursor(62, 0);
         oled.setTextSize(2);
-        oled.print(iat.get_data(Iat::IAT_INPUT_C));
+        oled.print(rpm);
         oled.setTextSize(1);
-        oled.print("C");
+        oled.print("rpm");
 
         oled.setTextSize(1);
         //linha 2 col 1
@@ -270,8 +246,8 @@ void loop()
 
         //linha 2 col 2
         oled.setCursor(60, 16);
-        oled.print("rpm ");
-        oled.print(rpm);
+        //oled.print("rpm ");
+        //oled.print(rpm);
 
         //linha 3 col 1
         oled.setCursor(0, 24);
@@ -331,32 +307,6 @@ void loop()
         oled.setCursor(90, 48);
         oled.print(boost.get_data(Boost::DUTY));
         oled.print("%");
-        break;
-      case IAT_TEST:
-        oled.setTextSize(2);
-        // linha 1
-        oled.println("IAT TEST");
-        // linha 2
-        oled.setTextSize(1);
-        oled.setCursor(0, 16);
-        oled.print("mv in     = ");
-        oled.println(iat.get_data(Iat::IAT_INPUT_MV));
-
-        oled.print("mv out    = ");
-        oled.println(iat.get_data(Iat::IAT_OUTPUT_MV));
-
-        oled.print("IAT K in  = ");
-        oled.println(iat.get_data(Iat::IAT_INPUT_K));
-        // linha 3
-        oled.print("IAT K out = ");
-        oled.println(iat.get_data(Iat::IAT_OUTPUT_K));
-        // linha 4
-        oled.print("IAT C in = ");
-        oled.println(iat.get_data(Iat::IAT_OUTPUT_C));
-
-        oled.print("IAT C out = ");
-        oled.println(iat.get_data(Iat::IAT_OUTPUT_C));
-        
         break;
       case CFG_SAVE:
         oled.setTextSize(2);
@@ -424,33 +374,6 @@ void loop()
           enc.reset();
         }
         break;
-      case ADJ_MAPA:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.println("MAPA");
-        oled.print("table = ");
-        oled.println(Cfg::selected_map);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            if(Cfg::selected_map + 1 > 2) {
-              Cfg::selected_map = 2;
-            } else {
-              Cfg::selected_map += 1;
-            }
-          }
-          else if (enc.getValue() < 0)
-          {
-            if(Cfg::selected_map - 1 < 0) {
-              Cfg::selected_map = 0;
-            } else {
-              Cfg::selected_map -= 1;
-            }
-          }
-          enc.reset();
-        }
-        break;
       case ADJ_KP:
         oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
         oled.setTextSize(2);
@@ -462,11 +385,11 @@ void loop()
         {
           if (enc.getValue() > 0)
           {
-            Cfg::kp += 5;
+            Cfg::kp += 1;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::kp -= 5;
+            Cfg::kp -= 1;
           }
           enc.reset();
         }
@@ -482,11 +405,11 @@ void loop()
         {
           if (enc.getValue() > 0)
           {
-            Cfg::ki += 5;
+            Cfg::ki += 1;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::ki -= 5;
+            Cfg::ki -= 1;
           }
           enc.reset();
         }
@@ -502,11 +425,11 @@ void loop()
         {
           if (enc.getValue() > 0)
           {
-            Cfg::kd += 5;
+            Cfg::kd += 1;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::kd -= 5;
+            Cfg::kd -= 1;
           }
           enc.reset();
         }
@@ -527,26 +450,6 @@ void loop()
           else if (enc.getValue() < 0)
           {
             Cfg::err_spool_end -= 1000;
-          }
-          enc.reset();
-        }
-        break;
-      case ADJ_ERR_PRE_PEAK:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.println("Adj ERR");
-        oled.println("p-peak end");
-        oled.print("E = ");
-        oled.println(Cfg::err_pre_peak_end);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::err_pre_peak_end += 1000;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::err_pre_peak_end -= 1000;
           }
           enc.reset();
         }
@@ -597,16 +500,16 @@ void loop()
         oled.println("Adj BASE");
         oled.println("");
         oled.print("kPa = ");
-        oled.println(Cfg::base_kpa);
+        oled.println(Cfg::base_pressure);
         if (enc.hasMoved())
         {
           if (enc.getValue() > 0)
           {
-            Cfg::base_kpa += 1;
+            Cfg::base_pressure += 5;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::base_kpa -= 1;
+            Cfg::base_pressure -= 5;
           }
           enc.reset();
         }
@@ -617,16 +520,16 @@ void loop()
         oled.println("Adj CUT");
         oled.println("");
         oled.println("atm + ");
-        oled.println(Cfg::cut_threshold);
+        oled.println(Cfg::err_cut);
         if (enc.hasMoved())
         {
           if (enc.getValue() > 0)
           {
-            Cfg::cut_threshold += 1000;
+            Cfg::err_cut += 10;
           }
           else if (enc.getValue() < 0)
           {
-            Cfg::cut_threshold -= 1000;
+            Cfg::err_cut -= 10;
           }
           enc.reset();
         }
@@ -640,7 +543,7 @@ void loop()
         oled.print("Raw: ");
         oled.println(raw_map);
         oled.print("Pa: ");
-        oled.println(pa_map);
+        oled.println(mbar_map);
         if (enc.hasMoved())
         {
           if (enc.getValue() > 0)
@@ -650,26 +553,6 @@ void loop()
           else if (enc.getValue() < 0)
           {
             Cfg::map_cal -= 1;
-          }
-          enc.reset();
-        }
-        break;
-      case ADJ_PRESSAO:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.println("Max kPa");
-        oled.println("");
-        oled.print("P = ");
-        oled.println(Cfg::set_pressure);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::set_pressure += 1;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::set_pressure -= 1;
           }
           enc.reset();
         }
@@ -685,25 +568,20 @@ void loop()
 
 void control_isr() { // rodando a cada 1 ms
   raw_map = analogRead(MAP_PIN);
-  pa_map = raw_map * Cfg::map_cal; // pascal
+  mbar_map = (raw_map * Cfg::map_cal) / 100; // mbar
 
   raw_thr = analogRead(THROTTLE_PIN);
   thr = (raw_thr * 100) / Cfg::thr_cal; // % pedal acelerador
 
-  raw_iat = analogRead(IAT_PIN);
-  v_iat = (raw_iat * 3232) / 1000; // converter para mV
+  //raw_iat = analogRead(IAT_PIN);
+  //v_iat = (raw_iat * 3232) / 1000; // converter para mV
 
   rpm = fase.getRPM();
-  int rpm_index = get_rpm_index(rpm);
+  //int rpm_index = get_rpm_index(rpm);
 
-  boost.update_boost(pa_map);
-  boost.loop(rpm, rpm_index, thr);
-  analogWrite(WG_PIN, (boost.get_data(Boost::DUTY) * 255) / 100);
-
-  iat.update(v_iat);
-  iat.loop(rpm, rpm_index, (boost.get_data(Boost::BOOST)/1000));
-  dac.setVoltage(iat.get_dac_value(), false);
-
+  boost.update_boost(mbar_map);
+  boost.loop(rpm, thr);
+  analogWrite(WG_PIN, (boost.get_data(Boost::DUTY) * 255) / 1000);
 }
 
 void phase_isr()
