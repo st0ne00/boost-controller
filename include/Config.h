@@ -34,9 +34,17 @@ namespace Cfg {
     inline constexpr int rpm_steps = 14;
     inline constexpr int rpm_step = 500;
     inline constexpr int rpm_min = 500;
-    //                                           500  1000  1500  2000  2500  3000  3500  4000  4500  5000  5500  6000  6500  7000
-    inline std::array<int, 14> duty_rpm_mul =  { 860,  880,  900,  920,  940,  960,  980, 1000, 1020, 1040, 1060, 1080, 1100, 1120};
-    inline std::array<int, 14> boost_rpm_mul = {1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
+    //                                                                500  1000  1500  2000  2500  3000  3500  4000  4500  5000  5500  6000  6500  7000
+    inline constexpr std::array<int, rpm_steps> duty_rpm_default =  { 860,  880,  900,  920,  940,  960,  980, 1000, 1020, 1040, 1060, 1080, 1100, 1120};
+    inline constexpr std::array<int, rpm_steps> boost_rpm_default = {1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
+
+    inline auto duty_rpm_mul = duty_rpm_default;
+    inline auto boost_rpm_mul = boost_rpm_default;
+
+    // each array occupies a separate 4 KB flash sector.
+    inline constexpr uint32_t cfg_address = 0x0000;
+    inline constexpr uint32_t boost_map_address = 0x1000;
+    inline constexpr uint32_t duty_map_address = 0x2000;
 
     // config padrao
     inline constexpr auto cfg_default = [] {

@@ -19,16 +19,20 @@ const UI::Entry UI::throttleEntries[] = {
   {"Max Thr", UNAVAILABLE}, {"Min Thr", UNAVAILABLE},
   {"Thr Cal", UNAVAILABLE}, {"Idle RPM", UNAVAILABLE}
 };
+const UI::Entry UI::mapEntries[] = {
+  {"Salvar", MAP_SAVE}, {"Carregar", MAP_LOAD}, {"Reset", MAP_RESET}
+};
 const UI::Entry UI::configEntries[] = {
-  {"Save", CFG_SAVE}, {"Load", CFG_LOAD}, {"Reset", CFG_RESET}
+  {"Salvar", CFG_SAVE}, {"Carregar", CFG_LOAD}, {"Reset", CFG_RESET}
 };
 #define ENTRY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
 const UI::Category UI::categories[] = {
   {"Pressure", pressureEntries, ENTRY_COUNT(pressureEntries)},
   {"Duty", dutyEntries, ENTRY_COUNT(dutyEntries)},
   {"PID", pidEntries, ENTRY_COUNT(pidEntries)},
-  {"Throttle", throttleEntries, ENTRY_COUNT(throttleEntries)},
-  {"Config", configEntries, ENTRY_COUNT(configEntries)}
+  {"Acelerador", throttleEntries, ENTRY_COUNT(throttleEntries)},
+  {"Cfg Mem", configEntries, ENTRY_COUNT(configEntries)},
+  {"Map Mem", mapEntries, ENTRY_COUNT(mapEntries)}
 };
 const uint8_t UI::categoryCount = ENTRY_COUNT(categories);
 #undef ENTRY_COUNT
@@ -68,8 +72,53 @@ void UI::drawMenu()
     oled.setTextColor(index == selected ? SSD1306_BLACK : SSD1306_WHITE,
                       index == selected ? SSD1306_WHITE : SSD1306_BLACK);
     oled.print(label);
+    if (!top && index == selected && actionResult != ActionResult::None) {
+      oled.setTextSize(2);
+      oled.setCursor(104, 17 + row * 16);
+      oled.print(actionResult == ActionResult::Ok ? "OK" : "ER");
+    }
   }
   oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+}
+
+bool UI::runAction(DisplayPage action, bool& ok)
+{
+  ok = true;
+  switch (action) {
+    case CFG_SAVE:
+      ok = flash.save(Cfg::cfg_data, Cfg::cfg_address);
+      break;
+    case CFG_LOAD:
+      ok = flash.load(Cfg::cfg_data, Cfg::cfg_address);
+      break;
+    case CFG_RESET:
+      Cfg::cfg_data = Cfg::cfg_default;
+      break;
+    case MAP_SAVE: {
+      const bool boost_ok = flash.save(Cfg::boost_rpm_mul, Cfg::boost_map_address);
+      const bool duty_ok = flash.save(Cfg::duty_rpm_mul, Cfg::duty_map_address);
+      ok = boost_ok && duty_ok;
+      break;
+    }
+    case MAP_LOAD: {
+      auto boost_map = Cfg::boost_rpm_mul;
+      auto duty_map = Cfg::duty_rpm_mul;
+      ok = flash.load(boost_map, Cfg::boost_map_address) &&
+           flash.load(duty_map, Cfg::duty_map_address);
+      if (ok) {
+        Cfg::boost_rpm_mul = boost_map;
+        Cfg::duty_rpm_mul = duty_map;
+      }
+      break;
+    }
+    case MAP_RESET:
+      Cfg::boost_rpm_mul = Cfg::boost_rpm_default;
+      Cfg::duty_rpm_mul = Cfg::duty_rpm_default;
+      break;
+    default:
+      return false;
+  }
+  return true;
 }
 
 void UI::drawMapEditor(std::array<int, Cfg::rpm_steps>& map, bool pressure, bool clicked)
@@ -133,10 +182,12 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
     const bool held = enc.hasHeld();
     const bool pageClicked = screen == Screen::Page && clicked && !held && !reset_requested;
     if (reset_requested) {
+      actionResult = ActionResult::None;
       screen = Screen::Dashboard;
       display_page = MAIN;
       enc.reset();
     } else if (held) {
+      actionResult = ActionResult::None;
       if (screen == Screen::Page) screen = Screen::Entries;
       else if (screen == Screen::Entries) screen = Screen::Categories;
       else if (screen == Screen::Categories) screen = Screen::Dashboard;
@@ -148,10 +199,17 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
         entryIndex = 0;
         entryScroll = 0;
       } else {
-        display_page = categories[categoryIndex].entries[entryIndex].page;
-        screen = Screen::Page;
-        mapIndex = 0;
-        mapValueSelected = false;
+        const DisplayPage selectedPage = categories[categoryIndex].entries[entryIndex].page;
+        bool ok;
+        if (runAction(selectedPage, ok)) {
+          actionResult = ok ? ActionResult::Ok : ActionResult::Error;
+        } else {
+          actionResult = ActionResult::None;
+          display_page = selectedPage;
+          screen = Screen::Page;
+          mapIndex = 0;
+          mapValueSelected = false;
+        }
       }
       enc.reset();
     }
@@ -163,6 +221,7 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
       int next = static_cast<int>(selected) + movement;
       if (next < 0) next = 0;
       if (next >= count) next = count - 1;
+      if (next != selected) actionResult = ActionResult::None;
       selected = static_cast<uint8_t>(next);
     }
     oled.clearDisplay();
@@ -277,64 +336,6 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
         break;
       case DUTY_TABLE:
         drawMapEditor(Cfg::duty_rpm_mul, false, pageClicked);
-        break;
-      case CFG_SAVE:
-        oled.setTextSize(2);
-        oled.print("Flash ");
-        if (flash.is_ok()) {
-          oled.println("OK");
-        } else {
-          oled.println("ER");
-        }
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            if(flash.save_config()) {
-              oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-              oled.println("Cfg salva!");
-            } else {
-              oled.println("Cfg erro!");
-            }
-          }
-          enc.reset();
-        }
-        break;
-      case CFG_LOAD:
-        oled.setTextSize(2);
-        oled.print("Flash ");
-        if (flash.is_ok()) {
-          oled.println("OK");
-        } else {
-          oled.println("ER");
-        }
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            if(flash.read_config()) {
-              oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-              oled.println("Cfg load!");
-            } else {
-              oled.println("Cfg erro!");
-            }
-          }
-          enc.reset();
-        }
-        break;
-      case CFG_RESET:
-        oled.setTextSize(2);
-        
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::cfg_data = Cfg::cfg_default;
-            oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
-            oled.println("Cfg Reset!");
-          }
-          enc.reset();
-        }
         break;
       case ADJ_KP:
         oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);

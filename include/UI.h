@@ -22,11 +22,14 @@ private:
   enum class Screen { Dashboard, Categories, Entries, Page };
   struct Entry { const char* label; DisplayPage page; };
   struct Category { const char* label; const Entry* entries; uint8_t count; };
-  static const Entry pressureEntries[], dutyEntries[], pidEntries[], throttleEntries[], configEntries[];
+  static const Entry pressureEntries[], dutyEntries[], pidEntries[], throttleEntries[], configEntries[], mapEntries[];
   static const Category categories[];
   static const uint8_t categoryCount;
   void title(const char* text = nullptr);
   void drawMenu();
+  bool runAction(DisplayPage action, bool& ok);
+  enum class ActionResult { None, Ok, Error };
+  ActionResult actionResult = ActionResult::None;
   void drawMapEditor(std::array<int, Cfg::rpm_steps>& map, bool pressure, bool clicked);
   int mapIndex = 0;
   bool mapValueSelected = false;
