@@ -10,10 +10,15 @@ Rotary::Rotary(int swPin, int clkPin, int dtPin)
     _changed = false;
     _stepAccumulator = 0;
     //_halfMoved = false;
-    _click_time = 0;
     _turn_time = 0;
-    _sw_status = 0;
+    _buttonRawPressed = false;
+    _buttonPressed = false;
+    _buttonArmed = false;
+    _holdReported = false;
+    _buttonChangedAt = 0;
+    _buttonPressedAt = 0;
     _clicked = false;
+    _held = false;
 }
 
 void Rotary::init()
@@ -22,6 +27,13 @@ void Rotary::init()
     pinMode(_ckp, INPUT_PULLUP);
     pinMode(_dtp, INPUT_PULLUP);
     _lastState = (digitalRead(_ckp) << 1) | digitalRead(_dtp);
+    _buttonRawPressed = digitalRead(_swp) == LOW;
+    _buttonPressed = _buttonRawPressed;
+    _buttonArmed = !_buttonPressed;
+    _buttonChangedAt = millis();
+    _holdReported = false;
+    _clicked = false;
+    _held = false;
 }
 /*
 void Rotary::poll()
@@ -109,26 +121,36 @@ void Rotary::reset(int newVal)
     _stepAccumulator = 0;
 }
 
-void Rotary::pollSW()
+void Rotary::updateButton()
 {
-    if(_clicked) return;
-    if((millis() - _click_time) > 100) { //debounce time
-        switch(_sw_status) {
-            case 0:
-                if(digitalRead(_swp) == 0) {
-                //pressed
-                _sw_status++;
-                }
-            break;
-            case 1:
-                if(digitalRead(_swp) == 1) {
-                //released
-                _click_time = millis();
+    const uint32_t now = millis();
+    const bool rawPressed = digitalRead(_swp) == LOW;
+
+    if (rawPressed != _buttonRawPressed) {
+        _buttonRawPressed = rawPressed;
+        _buttonChangedAt = now;
+    }
+
+    if (_buttonRawPressed != _buttonPressed &&
+        uint32_t(now - _buttonChangedAt) >= BUTTON_DEBOUNCE_MS) {
+        _buttonPressed = _buttonRawPressed;
+        if (_buttonPressed) {
+            if (_buttonArmed) {
+                _buttonPressedAt = now;
+                _holdReported = false;
+            }
+        } else {
+            if (_buttonArmed && !_holdReported) {
                 _clicked = true;
-                _sw_status = 0; //reset
-                }
-            break;
+            }
+            _buttonArmed = true;
         }
+    }
+
+    if (_buttonPressed && _buttonRawPressed && _buttonArmed &&
+        !_holdReported && uint32_t(now - _buttonPressedAt) >= BUTTON_HOLD_MS) {
+        _held = true;
+        _holdReported = true;
     }
 }
 
@@ -143,4 +165,11 @@ bool Rotary::hasClicked()
     {
         return false;
     }
+}
+
+bool Rotary::hasHeld()
+{
+    const bool held = _held;
+    _held = false;
+    return held;
 }

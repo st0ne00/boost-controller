@@ -91,7 +91,7 @@ namespace Cfg {
 
     inline int& max_duty       = cfg_data[MAX_DUTY];
     inline int& min_duty       = cfg_data[MIN_DUTY];
-    
+
     inline int& max_thr        = cfg_data[MAX_THR];
     inline int& min_thr        = cfg_data[MIN_THR];
 

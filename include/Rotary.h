@@ -12,8 +12,10 @@ public:
     bool hasMoved();
     int getValue(bool reset = false);
     void reset(int newVal = 0);
-    void pollSW();
+    // Call frequently from loop(), independently of display refreshes.
+    void updateButton();
     bool hasClicked();
+    bool hasHeld();
 
 private:
     int _swp;
@@ -27,10 +29,17 @@ private:
     //bool _halfMoved;
     int _value;
     
-    unsigned long _click_time;
     unsigned long _turn_time;
-    char _sw_status;
+    static constexpr uint32_t BUTTON_DEBOUNCE_MS = 25;
+    static constexpr uint32_t BUTTON_HOLD_MS = 800;
+    bool _buttonRawPressed;
+    bool _buttonPressed;
+    bool _buttonArmed;
+    bool _holdReported;
+    uint32_t _buttonChangedAt;
+    uint32_t _buttonPressedAt;
     bool _clicked;
+    bool _held;
 };
 
 #endif
