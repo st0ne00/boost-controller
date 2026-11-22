@@ -28,6 +28,7 @@ namespace Cfg {
         MIN_DUTY,
         MAX_THR,
         MIN_THR,
+        DISPLAY_TIME,
         COUNT
     };
 
@@ -73,6 +74,8 @@ namespace Cfg {
         a[MAX_DUTY]             = 900; //% x10
         a[MIN_DUTY]             = 100; //% x10
 
+        a[DISPLAY_TIME]         = 16; // ms
+
         return a;
     }();
 
@@ -102,6 +105,8 @@ namespace Cfg {
 
     inline int& max_thr        = cfg_data[MAX_THR];
     inline int& min_thr        = cfg_data[MIN_THR];
+
+    inline int& display_time   = cfg_data[DISPLAY_TIME];
 
 
     static const SPIFlash_Device_t flash_MX25L8006E = {

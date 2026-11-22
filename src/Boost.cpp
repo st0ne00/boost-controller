@@ -167,6 +167,11 @@ int Boost::calc_duty(int abs_request, int error, int rpm, bool p_enabled, bool i
     }
     
     pid = (pid_p + pid_i - pid_d);
+    if(pid > 1000) {
+        pid = 1000;
+    } else if(pid < -1000) {
+        pid = -1000;
+    }
     int output = base + pid;
 
     if(output > Cfg::max_duty) {

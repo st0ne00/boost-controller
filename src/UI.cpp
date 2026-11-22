@@ -23,7 +23,8 @@ const UI::Entry UI::mapEntries[] = {
   {"Salvar", MAP_SAVE}, {"Carregar", MAP_LOAD}, {"Reset", MAP_RESET}
 };
 const UI::Entry UI::configEntries[] = {
-  {"Salvar", CFG_SAVE}, {"Carregar", CFG_LOAD}, {"Reset", CFG_RESET}
+  {"Salvar", CFG_SAVE}, {"Carregar", CFG_LOAD}, {"Reset", CFG_RESET},
+  {"Tempo Disp", ADJ_REFRESH_TIME}
 };
 #define ENTRY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
 const UI::Category UI::categories[] = {
@@ -31,7 +32,7 @@ const UI::Category UI::categories[] = {
   {"Duty", dutyEntries, ENTRY_COUNT(dutyEntries)},
   {"PID", pidEntries, ENTRY_COUNT(pidEntries)},
   {"Acelerador", throttleEntries, ENTRY_COUNT(throttleEntries)},
-  {"Cfg Mem", configEntries, ENTRY_COUNT(configEntries)},
+  {"Config", configEntries, ENTRY_COUNT(configEntries)},
   {"Map Mem", mapEntries, ENTRY_COUNT(mapEntries)}
 };
 const uint8_t UI::categoryCount = ENTRY_COUNT(categories);
@@ -230,7 +231,7 @@ UI::UI(Adafruit_SSD1306& display, Rotary& encoder, Boost& controller, Flash& sto
 void UI::update(bool reset_requested, int rpm, int raw_map, int mbar_map, int raw_thr, int thr)
 {
   // DISPLAY
-  if ((millis() - last_display_time) > 30) // atualizar display a cada 30 ms
+  if ((millis() - last_display_time) > Cfg::display_time)
   {
     const bool clicked = enc.hasClicked();
     const bool held = enc.hasHeld();
@@ -242,7 +243,9 @@ void UI::update(bool reset_requested, int rpm, int raw_map, int mbar_map, int ra
       enc.reset();
     } else if (held) {
       actionResult = ActionResult::None;
-      if (screen == Screen::Page) screen = Screen::Entries;
+      if (screen == Screen::Dashboard) {
+        boost.reset_log();
+      } else if (screen == Screen::Page) screen = Screen::Entries;
       else if (screen == Screen::Entries) screen = Screen::Categories;
       else if (screen == Screen::Categories) screen = Screen::Dashboard;
       enc.reset();
@@ -295,6 +298,18 @@ void UI::update(bool reset_requested, int rpm, int raw_map, int mbar_map, int ra
         display_page = MAIN;
       case MAIN:
         drawBarGraph(boost.get_data(Boost::ABS_PRESSURE), 1000, 2200, 0, 16, "hPa", true, boost.get_data(Boost::MIN_PRESSURE_LOG), boost.get_data(Boost::MAX_PRESSURE_LOG));
+        oled.setCursor(0, 29);
+        oled.print(rpm);
+        oled.setCursor(25, 29);
+        oled.print("rpm");
+        
+        oled.setCursor(48, 29);
+        oled.print(thr);
+        oled.print("%");
+        
+        oled.setCursor(76, 29);
+        oled.print(boost.get_data(Boost::PID));
+        oled.print(" pid");
         drawBarGraph(boost.get_data(Boost::DUTY), 0, 1000, 40, 16, "%x10", true, boost.get_data(Boost::MIN_DUTY_LOG), boost.get_data(Boost::MAX_DUTY_LOG));
         break;
       case DASH:
@@ -435,6 +450,9 @@ void UI::update(bool reset_requested, int rpm, int raw_map, int mbar_map, int ra
         break;
       case ADJ_MIN_THR:
         drawValueEditor(Cfg::min_thr, 1, "%", "Abertura do acelerador para boost minimo");
+        break;
+      case ADJ_REFRESH_TIME:
+        drawValueEditor(Cfg::display_time, 1, "ms", "Tempo de atualizacao do display");
         break;
       case ADJ_MAP_CAL:
         oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
