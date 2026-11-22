@@ -1,6 +1,6 @@
 #include "UI.h"
 #include "Config.h"
-#include <string.h>
+#include <string>
 
 // Add entries to these tables to extend either menu level.
 const UI::Entry UI::pressureEntries[] = {
@@ -198,6 +198,30 @@ void UI::drawValueEditor(int &value, int step, const char* unit=nullptr, const c
   }
 }
 
+void UI::drawBarGraph(int32_t value, int32_t min, int32_t max, int32_t start_y, int32_t height, const char* label = nullptr, bool show_min_max = false, int32_t min_value = 0, int32_t max_value = 0)
+{
+  int32_t max_length = 128;
+  int32_t bar_length = (value - min) * max_length / (max - min);
+  if(bar_length < 0) bar_length = 0;
+  if(bar_length > max_length) bar_length = max_length;
+  oled.fillRect(0, start_y, bar_length, height, SSD1306_WHITE);
+  oled.setTextSize(1);
+  oled.setCursor(0, (start_y + (height / 2) - 4));
+  oled.print(value);
+  if(label != nullptr) {
+    oled.print(" ");
+    oled.print(label);
+  }
+  if(show_min_max) {
+    oled.setCursor(0, start_y + height + 1);
+    oled.print(min_value);
+    oled.print(" min");
+    oled.setCursor(max_length - ((std::to_string(max_value).length() * 6) + 24), start_y + height + 1);
+    oled.print("max ");
+    oled.print(max_value);
+  }
+}
+
 UI::UI(Adafruit_SSD1306& display, Rotary& encoder, Boost& controller, Flash& storage)
   : oled(display), enc(encoder), boost(controller), flash(storage)
 {
@@ -270,6 +294,10 @@ void UI::update(bool reset_requested, int rpm, int raw_map, int mbar_map, int ra
       default:
         display_page = MAIN;
       case MAIN:
+        drawBarGraph(boost.get_data(Boost::ABS_PRESSURE), 1000, 2200, 0, 16, "hPa", true, boost.get_data(Boost::MIN_PRESSURE_LOG), boost.get_data(Boost::MAX_PRESSURE_LOG));
+        drawBarGraph(boost.get_data(Boost::DUTY), 0, 1000, 40, 16, "%x10", true, boost.get_data(Boost::MIN_DUTY_LOG), boost.get_data(Boost::MAX_DUTY_LOG));
+        break;
+      case DASH:
         oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
         //linha 1 col 1
         oled.setCursor(0, 0);

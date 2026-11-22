@@ -177,11 +177,7 @@ void control_isr() { // rodando a cada 1 ms
   raw_thr = analogRead(THROTTLE_PIN);
   thr = (raw_thr * 100) / Cfg::thr_cal; // % pedal acelerador
 
-  //raw_iat = analogRead(IAT_PIN);
-  //v_iat = (raw_iat * 3232) / 1000; // converter para mV
-
   rpm = fase.getRPM();
-  //int rpm_index = get_rpm_index(rpm);
 
   boost.update_boost(mbar_map);
   boost.loop(rpm, thr);

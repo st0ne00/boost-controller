@@ -10,6 +10,7 @@ class Boost {
         Boost(int update_frequency = 1, int boost_samples = 10);
         void update_boost(int current_pressure);
         int loop(int rpm, int throttle);
+        void reset_log();
         enum State {
             IDLE,
             SPOOL,
@@ -31,7 +32,11 @@ class Boost {
             PID_D,
             PID,
             BASE,
-            BOOST
+            BOOST,
+            MAX_PRESSURE_LOG,
+            MIN_PRESSURE_LOG,
+            MAX_DUTY_LOG,
+            MIN_DUTY_LOG
         };
         int get_data(Dados type);
 
@@ -60,9 +65,16 @@ class Boost {
         int pid_i;
         int pid_d;
         int pid;
+        int max_pressure_log;
+        int min_pressure_log;
+        int max_duty_log;
+        int min_duty_log;
+        bool log_enabled;
+
         int32_t get_map_value(const std::array<int, Cfg::rpm_steps>& map, int rpm);
         int calc_abs_req(int map_kpa, int throttle);
         int calc_duty(int abs_request, int error, int rpm_index, bool p_enabled, bool i_enabled, bool d_enabled);
+        void log();
 };
 
 #endif

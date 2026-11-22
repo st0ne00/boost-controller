@@ -14,7 +14,10 @@ Boost::Boost(int update_frequency, int boost_samples) {
     state = 0;
     atm_pressure = 1000; // 100 kpa em mbar
     error = 0;
-    integral = 0;   
+    integral = 0;
+    duty = 0;
+    reset_log();
+    log_enabled = true;
 }
 
 void Boost::update_boost(int current_pressure) { //mbar
@@ -99,6 +102,7 @@ int Boost::loop(int rpm, int throttle) {
             state = State::IDLE;
             break;
     }
+    if(log_enabled) log();
     return state;
 }
 
@@ -224,7 +228,37 @@ int Boost::get_data(Dados type) {
             return base;
         case BOOST:
             return pressure - atm_pressure;
+        case MAX_PRESSURE_LOG:
+            return max_pressure_log;
+        case MIN_PRESSURE_LOG:
+            return min_pressure_log;
+        case MAX_DUTY_LOG:  
+            return max_duty_log;
+        case MIN_DUTY_LOG:
+            return min_duty_log;
         default:
             return 0;
     }
+}
+
+void Boost::log() {
+    if(pressure > max_pressure_log) {
+        max_pressure_log = pressure;
+    }
+    if(pressure < min_pressure_log) {
+        min_pressure_log = pressure;
+    }
+    if(duty > max_duty_log) {
+        max_duty_log = duty;
+    }
+    if(duty < min_duty_log) {
+        min_duty_log = duty;
+    }
+}
+
+void Boost::reset_log() {
+    max_pressure_log = pressure;
+    min_pressure_log = pressure;
+    max_duty_log = duty;
+    min_duty_log = duty;
 }
