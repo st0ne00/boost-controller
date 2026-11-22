@@ -165,7 +165,7 @@ void loop()
   enc.updateButton();
   digitalWrite(LED_BUILTIN, ledState);
 
-  ui.update(rpm, raw_map, mbar_map, !digitalRead(BT_PIN));
+  ui.update(!digitalRead(BT_PIN), rpm, raw_map, mbar_map, raw_thr, thr);
 }
 
 // INTERRUPTS

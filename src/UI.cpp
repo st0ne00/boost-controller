@@ -8,16 +8,16 @@ const UI::Entry UI::pressureEntries[] = {
   {"Err Cut", ADJ_CUT_ERR}, {"Map Cal", ADJ_MAP_CAL}, {"Boost Map", BOOST_TABLE}
 };
 const UI::Entry UI::dutyEntries[] = {
-  {"Base Duty", ADJ_BASE_DUTY}, {"Idle Duty", UNAVAILABLE},
-  {"Max Duty", UNAVAILABLE}, {"Min Duty", UNAVAILABLE}, {"Duty Map", DUTY_TABLE}
+  {"Base Duty", ADJ_BASE_DUTY}, {"Idle Duty", ADJ_IDLE_DUTY},
+  {"Max Duty", ADJ_MAX_DUTY}, {"Min Duty", ADJ_MIN_DUTY}, {"Duty Map", DUTY_TABLE}
 };
 const UI::Entry UI::pidEntries[] = {
   {"Const P", ADJ_KP}, {"Const I", ADJ_KI}, {"Const D", ADJ_KD},
   {"Max Integral", ADJ_INTEGRAL_LIMIT}
 };
 const UI::Entry UI::throttleEntries[] = {
-  {"Max Thr", UNAVAILABLE}, {"Min Thr", UNAVAILABLE},
-  {"Thr Cal", UNAVAILABLE}, {"Idle RPM", UNAVAILABLE}
+  {"Max Thr", ADJ_MAX_THR}, {"Min Thr", ADJ_MIN_THR},
+  {"Thr Cal", ADJ_THR_CAL}, {"Idle RPM", ADJ_IDLE_RPM}
 };
 const UI::Entry UI::mapEntries[] = {
   {"Salvar", MAP_SAVE}, {"Carregar", MAP_LOAD}, {"Reset", MAP_RESET}
@@ -168,12 +168,42 @@ void UI::drawMapEditor(std::array<int, Cfg::rpm_steps>& map, bool pressure, bool
   oled.print(pressure ? " mbar" : " %");
 }
 
+void UI::drawValueEditor(int &value, int step, const char* unit=nullptr, const char* desc=nullptr) {
+  oled.setCursor(0, 16);
+  oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+  oled.setTextSize(2);
+  oled.print(value);
+  oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+  if(unit != nullptr) {
+    oled.setTextSize(1);
+    oled.print(" ");
+    oled.print(unit);
+  }
+  oled.setCursor(0, 34);
+  if(desc != nullptr) {
+    oled.setTextSize(1);
+    oled.println(desc);
+  }
+  if (enc.hasMoved())
+  {
+    if (enc.getValue() > 0)
+  {
+    value += step;
+  }
+  else if (enc.getValue() < 0)
+  {
+    value -= step;
+  }
+    enc.reset();
+  }
+}
+
 UI::UI(Adafruit_SSD1306& display, Rotary& encoder, Boost& controller, Flash& storage)
   : oled(display), enc(encoder), boost(controller), flash(storage)
 {
 }
 
-void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
+void UI::update(bool reset_requested, int rpm, int raw_map, int mbar_map, int raw_thr, int thr)
 {
   // DISPLAY
   if ((millis() - last_display_time) > 30) // atualizar display a cada 30 ms
@@ -244,32 +274,34 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
         //linha 1 col 1
         oled.setCursor(0, 0);
         oled.setTextSize(2);
-        oled.print((boost.get_data(Boost::ABS_PRESSURE) / 1000));
+        oled.print(boost.get_data(Boost::ABS_PRESSURE));
         oled.setTextSize(1);
-        oled.print("kPa");
+        oled.print("hPa");
 
         //linha 1 col 2
-        oled.setCursor(62, 0);
+        oled.setCursor(74, 0);
+        oled.setTextSize(1);
+        oled.print("R");
         oled.setTextSize(2);
         oled.print(rpm);
-        oled.setTextSize(1);
-        oled.print("rpm");
+        
 
         oled.setTextSize(1);
         //linha 2 col 1
         oled.setCursor(0, 16);
         oled.print("req ");
-        oled.print((boost.get_data(Boost::REQ_PRESSURE) / 1000));
+        oled.print(boost.get_data(Boost::REQ_PRESSURE));
 
         //linha 2 col 2
         oled.setCursor(60, 16);
-        //oled.print("rpm ");
-        //oled.print(rpm);
+        oled.print("p ");
+        oled.print(boost.get_data(Boost::PID_P));
+        
 
         //linha 3 col 1
         oled.setCursor(0, 24);
-        oled.print("p ");
-        oled.print(boost.get_data(Boost::PID_P));
+        oled.print("err ");
+        oled.print(boost.get_data(Boost::ERROR));
 
         //linha 3 col 2
         oled.setCursor(60, 24);
@@ -278,24 +310,27 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
 
         //linha 4 col 1
         oled.setCursor(0, 32);
-        oled.print("d ");
-        oled.print(boost.get_data(Boost::PID_D));
-
-        //linha 4 col 2
-        oled.setCursor(60, 32);
-        oled.print("pid ");
-        oled.print(boost.get_data(Boost::PID));
-
-        //linha 5 col 1
-        oled.setCursor(0, 40);
-        oled.print("err ");
-        oled.print(boost.get_data(Boost::ERROR));
-
-        //linha 5 col 2
-        oled.setCursor(60, 40);
         oled.print("atm ");
         oled.print(boost.get_data(Boost::ATM_PRESSURE));
 
+        //linha 4 col 2
+        oled.setCursor(60, 32);
+        oled.print("d ");
+        oled.print(boost.get_data(Boost::PID_D));
+        
+
+        //linha 5 col 1
+        oled.setCursor(0, 40);
+        oled.print("base ");
+        oled.print(boost.get_data(Boost::BASE));
+
+
+        //linha 5 col 2
+        oled.setCursor(60, 40);
+        oled.print("pid ");
+        oled.print(boost.get_data(Boost::PID));
+
+        
         //linha 6 col 1
         oled.setTextSize(2);
         oled.setCursor(0, 48);
@@ -321,15 +356,9 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
         }
 
         //linha 6 col 2
-        oled.setCursor(90, 48);
+        oled.setCursor(80, 48);
         oled.print(boost.get_data(Boost::DUTY));
-        oled.print("%");
-        break;
-      case UNAVAILABLE:
-        oled.setTextSize(2);
-        oled.println("Not yet");
-        oled.println("available");
-        if (enc.hasMoved()) enc.reset();
+        oled.print("d");
         break;
       case BOOST_TABLE:
         drawMapEditor(Cfg::boost_rpm_mul, true, pageClicked);
@@ -338,148 +367,46 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
         drawMapEditor(Cfg::duty_rpm_mul, false, pageClicked);
         break;
       case ADJ_KP:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.print("P = ");
-        oled.println(Cfg::kp);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::kp += 1;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::kp -= 1;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::kp, 1, "KP", "1000 -> 1 hPa error = 1% duty");
         break;
       case ADJ_KI:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.print("I = ");
-        oled.println(Cfg::ki);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::ki += 1;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::ki -= 1;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::ki, 10, "KI", "1000 -> 1 hPa*s error = 1% duty");
         break;
       case ADJ_KD:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.print("D = ");
-        oled.println(Cfg::kd);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::kd += 1;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::kd -= 1;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::kd, 5, "KD", "1000 -> 1bar/s boost rate = -1% duty");
         break;
       case ADJ_ERR_SPOOL:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.print("E = ");
-        oled.println(Cfg::err_spool_end);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::err_spool_end += 1000;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::err_spool_end -= 1000;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::err_spool_end, 5, "hPa", "Erro para finalizar spool");
         break;
       case ADJ_INTEGRAL_LIMIT:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.println("limit = ");
-        oled.println(Cfg::integral_limit);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::integral_limit += 50000;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::integral_limit -= 50000;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::integral_limit, 10000, "hPa*s", "Limite do integrador");
         break;
       case ADJ_BASE_DUTY:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.print("duty = ");
-        oled.println(Cfg::base_duty);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::base_duty += 1;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::base_duty -= 1;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::base_duty, 2, "%x10", "Duty base do mapa");
         break;
       case ADJ_BASE_KPA:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.print("kPa = ");
-        oled.println(Cfg::base_pressure);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::base_pressure += 5;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::base_pressure -= 5;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::base_pressure, 2, "hPa", "Pressao base do mapa");
         break;
       case ADJ_CUT_ERR:
-        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-        oled.setTextSize(2);
-        oled.println("atm + ");
-        oled.println(Cfg::err_cut);
-        if (enc.hasMoved())
-        {
-          if (enc.getValue() > 0)
-          {
-            Cfg::err_cut += 10;
-          }
-          else if (enc.getValue() < 0)
-          {
-            Cfg::err_cut -= 10;
-          }
-          enc.reset();
-        }
+        drawValueEditor(Cfg::err_cut, 10, "hPa", "Erro para corte de boost");
+        break;
+      case ADJ_IDLE_DUTY:
+        drawValueEditor(Cfg::idle_duty, 1, "%x10", "Duty de marcha lenta");
+        break;
+      case ADJ_MAX_DUTY:
+        drawValueEditor(Cfg::max_duty, 1, "%x10", "Duty maximo");
+        break;
+      case ADJ_MIN_DUTY:
+        drawValueEditor(Cfg::min_duty, 1, "%x10", "Duty minimo");
+        break;
+      case ADJ_IDLE_RPM:
+        drawValueEditor(Cfg::idle_rpm, 10, "rpm", "RPM de marcha lenta");
+        break;
+      case ADJ_MAX_THR:
+        drawValueEditor(Cfg::max_thr, 1, "%", "Abertura do acelerador para boost maximo");
+        break;
+      case ADJ_MIN_THR:
+        drawValueEditor(Cfg::min_thr, 1, "%", "Abertura do acelerador para boost minimo");
         break;
       case ADJ_MAP_CAL:
         oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
@@ -488,7 +415,7 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
         oled.println(Cfg::map_cal);
         oled.print("Raw: ");
         oled.println(raw_map);
-        oled.print("Pa: ");
+        oled.print("hPa: ");
         oled.println(mbar_map);
         if (enc.hasMoved())
         {
@@ -499,6 +426,28 @@ void UI::update(int rpm, int raw_map, int mbar_map, bool reset_requested)
           else if (enc.getValue() < 0)
           {
             Cfg::map_cal -= 1;
+          }
+          enc.reset();
+        }
+        break;
+      case ADJ_THR_CAL:
+        oled.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        oled.setTextSize(2);
+        oled.print("cal = ");
+        oled.println(Cfg::thr_cal);
+        oled.print("Raw: ");
+        oled.println(raw_thr);
+        oled.print("%: ");
+        oled.println(thr);
+        if (enc.hasMoved())
+        {
+          if (enc.getValue() > 0)
+          {
+            Cfg::thr_cal += 1;
+          }
+          else if (enc.getValue() < 0)
+          {
+            Cfg::thr_cal -= 1;
           }
           enc.reset();
         }
